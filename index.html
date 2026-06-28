@@ -1,0 +1,2597 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Gestão de Credenciamento — Divisão de Quantitativos</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<style>
+  :root {
+    --bg: #ffffff;
+    --bg2: #f7f7f5;
+    --bg3: #f0efe9;
+    --text: #1a1a1a;
+    --text2: #6b6b6b;
+    --text3: #9b9b9b;
+    --border: rgba(0,0,0,0.12);
+    --border2: rgba(0,0,0,0.22);
+    --info-bg: #e6f1fb;
+    --info-text: #185fa5;
+    --info-border: #b5d4f4;
+    --success-bg: #eaf3de;
+    --success-text: #3b6d11;
+    --success-border: #c0dd97;
+    --warn-bg: #faeeda;
+    --warn-text: #854f0b;
+    --warn-border: #fac775;
+    --danger-text: #a32d2d;
+    --danger-border: #f7c1c1;
+    --accent: #1d9e75;
+    --radius: 8px;
+    --radius-lg: 12px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #1e1e1c;
+      --bg2: #262624;
+      --bg3: #2e2e2b;
+      --text: #f0efe9;
+      --text2: #a0a09a;
+      --text3: #6b6b67;
+      --border: rgba(255,255,255,0.12);
+      --border2: rgba(255,255,255,0.22);
+      --info-bg: #0c3555;
+      --info-text: #85b7eb;
+      --info-border: #185fa5;
+      --success-bg: #173404;
+      --success-text: #97c459;
+      --success-border: #3b6d11;
+      --warn-bg: #412402;
+      --warn-text: #ef9f27;
+      --warn-border: #854f0b;
+      --danger-text: #f09595;
+      --danger-border: #791f1f;
+    }
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; font-size: 14px; color: var(--text); background: var(--bg3); min-height: 100vh; }
+  header { background: var(--bg); border-bottom: 0.5px solid var(--border); padding: 14px 24px; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 100; }
+  .logo { font-size: 16px; font-weight: 600; letter-spacing: -0.3px; }
+  .logo span { color: var(--accent); }
+  .header-actions { display: flex; gap: 8px; }
+  .main { max-width: 1100px; margin: 0 auto; padding: 24px 16px; }
+  .metrics { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; margin-bottom: 24px; }
+  .metric { background: var(--bg); border: 0.5px solid var(--border); border-radius: var(--radius-lg); padding: 14px 16px; }
+  .metric-label { font-size: 11px; color: var(--text2); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; }
+  .metric-value { font-size: 22px; font-weight: 600; }
+  .metric-value.sm { font-size: 16px; }
+  .card { background: var(--bg); border: 0.5px solid var(--border); border-radius: var(--radius-lg); padding: 16px 20px; margin-bottom: 16px; }
+  .card-title { font-size: 14px; font-weight: 600; margin-bottom: 14px; }
+  .tabs { display: flex; gap: 2px; border-bottom: 0.5px solid var(--border); margin-bottom: 20px; }
+  .tab { padding: 9px 18px; cursor: pointer; border: none; background: none; font-size: 13px; color: var(--text2); border-bottom: 2px solid transparent; font-family: inherit; transition: color 0.15s; }
+  .tab.active { color: var(--text); border-bottom-color: var(--accent); font-weight: 600; }
+  .tab:hover:not(.active) { color: var(--text); }
+  .section { display: none; }
+  .section.active { display: block; }
+  .row { display: flex; gap: 12px; flex-wrap: wrap; align-items: flex-end; margin-bottom: 12px; }
+  .field { display: flex; flex-direction: column; gap: 4px; }
+  .field label { font-size: 11px; color: var(--text2); font-weight: 500; text-transform: uppercase; letter-spacing: 0.3px; }
+  input, select, textarea { font-family: inherit; font-size: 13px; padding: 7px 10px; border: 0.5px solid var(--border2); border-radius: var(--radius); background: var(--bg); color: var(--text); outline: none; transition: border-color 0.15s; }
+  input:focus, select:focus, textarea:focus { border-color: var(--accent); box-shadow: 0 0 0 2px rgba(29,158,117,0.15); }
+  .btn { padding: 7px 14px; border: 0.5px solid var(--border2); border-radius: var(--radius); cursor: pointer; font-size: 13px; font-family: inherit; background: var(--bg); color: var(--text); transition: background 0.15s; white-space: nowrap; }
+  .btn:hover { background: var(--bg2); }
+  .btn.primary { background: var(--text); color: var(--bg); border-color: var(--text); }
+  .btn.primary:hover { opacity: 0.85; }
+  .btn.success { background: var(--accent); color: #fff; border-color: var(--accent); }
+  .btn.success:hover { opacity: 0.85; }
+  .btn.danger { color: var(--danger-text); border-color: var(--danger-border); background: transparent; }
+  .btn.danger:hover { background: var(--warn-bg); }
+  .btn.sm { padding: 4px 10px; font-size: 12px; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th { text-align: left; font-weight: 600; font-size: 11px; color: var(--text2); padding: 8px 10px; border-bottom: 0.5px solid var(--border); text-transform: uppercase; letter-spacing: 0.3px; }
+  td { padding: 8px 10px; border-bottom: 0.5px solid var(--border); vertical-align: middle; }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: var(--bg2); }
+  .badge { display: inline-block; font-size: 11px; padding: 2px 8px; border-radius: 12px; background: var(--info-bg); color: var(--info-text); margin: 2px; font-weight: 500; }
+  .empresa-tag { display: inline-block; font-size: 11px; padding: 3px 10px; border-radius: 12px; background: var(--bg2); border: 0.5px solid var(--border2); margin: 3px; cursor: pointer; transition: all 0.15s; user-select: none; }
+  .empresa-tag.selected { background: var(--info-bg); border-color: var(--info-border); color: var(--info-text); font-weight: 500; }
+  .alert { padding: 10px 14px; border-radius: var(--radius); font-size: 13px; margin-bottom: 12px; border: 0.5px solid; }
+  .alert.warn { background: var(--warn-bg); color: var(--warn-text); border-color: var(--warn-border); }
+  .alert.ok { background: var(--success-bg); color: var(--success-text); border-color: var(--success-border); }
+  .alert.info { background: var(--info-bg); color: var(--info-text); border-color: var(--info-border); }
+  .upload-zone { border: 2px dashed var(--border2); border-radius: var(--radius-lg); padding: 2.5rem; text-align: center; cursor: pointer; color: var(--text2); font-size: 13px; transition: all 0.2s; }
+  .upload-zone:hover { border-color: var(--accent); color: var(--text); }
+  .upload-zone.drag { border-color: var(--accent); background: var(--success-bg); }
+  .progress-bar { height: 6px; background: var(--bg3); border-radius: 3px; flex: 1; overflow: hidden; min-width: 60px; }
+  .progress-fill { height: 100%; border-radius: 3px; background: var(--accent); transition: width 0.3s; }
+  .division-row { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 0.5px solid var(--border); }
+  .division-row:last-child { border-bottom: none; }
+  .emp-name-short { width: 200px; font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex-shrink: 0; }
+  .scroll-x { overflow-x: auto; }
+  .w80 { width: 80px; }
+  .w120 { width: 120px; }
+  .w170 { width: 170px; }
+  .flex1 { flex: 1; }
+  .sep { height: 0.5px; background: var(--border); margin: 14px 0; }
+  .icon { font-size: 16px; }
+  .empty { color: var(--text3); font-size: 13px; padding: 20px 0; text-align: center; }
+  /* VINCULAÇÃO */
+  .vinc-table { width:100%;border-collapse:collapse;font-size:13px; }
+  .vinc-table thead th { font-size:11px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:0.3px;padding:9px 12px;border-bottom:1.5px solid var(--border);text-align:left;background:var(--bg2); }
+  .vinc-table tbody tr:hover td { background:rgba(0,0,0,0.02); }
+  .vinc-table td { padding:8px 12px;border-bottom:0.5px solid var(--border); }
+  .vinc-table tr:last-child td { border-bottom:none; }
+  .vinc-cb { width:15px;height:15px;cursor:pointer;accent-color:var(--accent);flex-shrink:0; }
+  .vinc-todas { font-size:11px;padding:3px 10px;border-radius:8px;border:0.5px solid var(--border2);background:var(--bg);cursor:pointer;color:var(--text2);font-family:inherit;white-space:nowrap;width:100%; }
+  .vinc-todas:hover { background:var(--info-bg);color:var(--info-text);border-color:var(--info-border); }
+  .vinc-cod { font-weight:700;color:var(--info-text);white-space:nowrap; }
+  .vinc-desc { font-weight:500;font-size:13px; }
+  .vinc-count { font-size:11px;color:var(--text3);margin-top:3px; }
+  .vinc-checkboxes { display:flex;flex-wrap:wrap;gap:6px 16px;align-items:center; }
+  .vinc-label { display:inline-flex;align-items:center;gap:6px;cursor:pointer;font-size:12px;color:var(--text);padding:4px 10px;border-radius:6px;border:0.5px solid var(--border);background:var(--bg);transition:all 0.12s;user-select:none; }
+  .vinc-label:hover { border-color:var(--accent);background:var(--success-bg); }
+  .vinc-label:has(input:checked) { background:var(--info-bg);border-color:var(--info-border);color:var(--info-text);font-weight:500; }
+  .vinc-emp-nome { white-space:nowrap; }
+  /* RELATÓRIO */
+  .rel-tab { display:inline-flex;align-items:center;gap:6px;padding:7px 16px;border-radius:var(--radius);border:0.5px solid var(--border2);cursor:pointer;font-size:13px;font-family:inherit;background:var(--bg);color:var(--text);transition:all 0.15s; }
+  .rel-tab.active { background:var(--text);color:var(--bg);border-color:var(--text); }
+  .rel-tab:hover:not(.active) { background:var(--bg2); }
+  .rel-empresa-header { background:var(--bg2);border-radius:var(--radius);padding:12px 16px;margin-bottom:12px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px; }
+  .rel-table { width:100%;border-collapse:collapse;font-size:13px;margin-bottom:4px; }
+  .rel-table th { font-size:11px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:0.3px;padding:7px 10px;border-bottom:1.5px solid var(--border);text-align:left; }
+  .rel-table td { padding:7px 10px;border-bottom:0.5px solid var(--border);vertical-align:middle; }
+  .rel-table tr:last-child td { border-bottom:none; }
+  .rel-table .total-row td { font-weight:700;background:var(--bg2);border-top:1.5px solid var(--border); }
+  .rel-table .grand-row td { font-weight:700;background:var(--info-bg);color:var(--info-text);font-size:14px; }
+  .rel-section { margin-bottom:24px; }
+  /* PRINT */
+  @media print {
+    body { background:#fff!important;color:#000!important;font-size:12px; }
+    header,#proc-banner,.tabs,.header-actions,#rel-toolbar,#metrics-bar,.tab,
+    #processo-home,.modal-overlay { display:none!important; }
+    #app-main { display:block!important;padding:0; }
+    .section { display:none!important; }
+    #tab-relatorio { display:block!important; }
+    .card { border:0.5px solid #ccc!important;box-shadow:none!important;break-inside:avoid;margin-bottom:16px; }
+    .rel-empresa-header { background:#f0f0f0!important;-webkit-print-color-adjust:exact; }
+    .rel-table .total-row td { background:#f0f0f0!important;-webkit-print-color-adjust:exact; }
+    .rel-table .grand-row td { background:#dceeff!important;-webkit-print-color-adjust:exact; }
+    .rel-section { break-inside:avoid; }
+    @page { margin:18mm 14mm; }
+  }
+  @media (max-width: 600px) {
+    .header-actions .btn:not(.success) { display: none; }
+    .emp-name-short { width: 120px; }
+  }
+  /* MODAL */
+  .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.45); z-index: 500; display: flex; align-items: center; justify-content: center; padding: 16px; }
+  .modal-overlay.hidden { display: none; }
+  .modal { background: var(--bg); border-radius: var(--radius-lg); border: 0.5px solid var(--border); width: 100%; max-width: 560px; max-height: 90vh; overflow-y: auto; box-shadow: 0 8px 32px rgba(0,0,0,0.18); }
+  .modal-header { padding: 18px 20px 14px; border-bottom: 0.5px solid var(--border); display: flex; align-items: center; justify-content: space-between; }
+  .modal-body { padding: 20px; }
+  .modal-footer { padding: 14px 20px; border-top: 0.5px solid var(--border); display: flex; gap: 8px; justify-content: flex-end; }
+  /* PROCESSO HOME */
+  #processo-home { display: none; }
+  #processo-home.active { display: block; }
+  .proc-card { background: var(--bg); border: 0.5px solid var(--border); border-radius: var(--radius-lg); padding: 16px 20px; margin-bottom: 10px; display: flex; align-items: center; gap: 16px; cursor: pointer; transition: border-color 0.15s, box-shadow 0.15s; }
+  .proc-card:hover { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(29,158,117,0.1); }
+  .proc-card.active-proc { border-color: var(--accent); background: var(--success-bg); }
+  .proc-icon { width: 44px; height: 44px; border-radius: var(--radius); background: var(--info-bg); display: flex; align-items: center; justify-content: center; font-size: 20px; flex-shrink: 0; }
+  .proc-info { flex: 1; min-width: 0; }
+  .proc-nome { font-weight: 600; font-size: 14px; }
+  .proc-meta { font-size: 12px; color: var(--text2); margin-top: 2px; }
+  .proc-actions { display: flex; gap: 6px; flex-shrink: 0; }
+  /* HEADER PROCESSO ATIVO */
+  #proc-banner { background: var(--info-bg); border-bottom: 0.5px solid var(--info-border); padding: 6px 24px; display: flex; align-items: center; gap: 10px; font-size: 13px; color: var(--info-text); }
+  #proc-banner.hidden { display: none; }
+  .autosave-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--accent); display: inline-block; margin-right: 4px; animation: pulse 2s infinite; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+  .tag-status { font-size: 11px; padding: 2px 8px; border-radius: 10px; font-weight: 500; }
+  .tag-em-andamento { background: var(--warn-bg); color: var(--warn-text); border: 0.5px solid var(--warn-border); }
+  .tag-concluido { background: var(--success-bg); color: var(--success-text); border: 0.5px solid var(--success-border); }
+  .tag-fracassado { background: rgba(163,45,45,0.08); color: var(--danger-text); border: 0.5px solid var(--danger-border); }
+  .tag-cancelado { background: rgba(100,100,100,0.10); color: var(--text3); border: 0.5px solid var(--border2); }
+
+  /* LOGIN */
+  #login-screen { position:fixed;inset:0;background:var(--bg3);z-index:9999;display:flex;align-items:center;justify-content:center;padding:16px; }
+  #login-screen.hidden { display:none; }
+  .login-card { background:var(--bg);border:0.5px solid var(--border);border-radius:var(--radius-lg);padding:36px 32px;width:100%;max-width:380px;box-shadow:0 8px 32px rgba(0,0,0,0.12); }
+  .login-logo { font-size:22px;font-weight:700;margin-bottom:4px; }
+  .login-logo span { color:var(--accent); }
+  .login-subtitle { font-size:13px;color:var(--text2);margin-bottom:28px; }
+  .login-field { display:flex;flex-direction:column;gap:5px;margin-bottom:16px; }
+  .login-field label { font-size:11px;color:var(--text2);font-weight:600;text-transform:uppercase;letter-spacing:0.3px; }
+  .login-field input { font-size:14px;padding:9px 12px;border:0.5px solid var(--border2);border-radius:var(--radius);background:var(--bg);color:var(--text);outline:none;transition:border-color 0.15s; }
+  .login-field input:focus { border-color:var(--accent);box-shadow:0 0 0 2px rgba(29,158,117,0.15); }
+  .login-btn { width:100%;padding:10px;background:var(--accent);color:#fff;border:none;border-radius:var(--radius);font-size:14px;font-weight:600;cursor:pointer;font-family:inherit;transition:opacity 0.15s;margin-top:4px; }
+  .login-btn:hover { opacity:0.85; }
+  .login-btn:disabled { opacity:0.5;cursor:not-allowed; }
+  .login-error { font-size:13px;color:var(--danger-text);background:rgba(163,45,45,0.08);border:0.5px solid var(--danger-border);border-radius:var(--radius);padding:9px 12px;margin-bottom:14px;display:none; }
+  .login-toggle { text-align:center;margin-top:16px;font-size:13px;color:var(--text2); }
+  .login-toggle a { color:var(--accent);cursor:pointer;font-weight:500; }
+  .login-spinner { display:inline-block;width:14px;height:14px;border:2px solid rgba(255,255,255,0.4);border-top-color:#fff;border-radius:50%;animation:spin 0.7s linear infinite;vertical-align:middle;margin-right:6px; }
+  @keyframes spin { to { transform:rotate(360deg); } }
+  .user-info { display:flex;align-items:center;gap:8px;font-size:12px;color:var(--text2); }
+  .sugestao-item { padding:9px 14px;cursor:pointer;font-size:13px;border-bottom:0.5px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:8px; }
+  .sugestao-item:last-child { border-bottom:none; }
+  .sugestao-item:hover { background:var(--bg2); }
+  .sugestao-item .sug-nome { font-weight:500; }
+  .sugestao-item .sug-cnpj { font-size:11px;color:var(--text3); }
+  .sugestao-nova { padding:9px 14px;cursor:pointer;font-size:13px;color:var(--accent);font-weight:500;border-top:0.5px solid var(--border); }
+  .sugestao-nova:hover { background:var(--bg2); }
+</style>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+
+<!-- TELA DE LOGIN -->
+<div id="login-screen">
+  <div class="login-card">
+    <div class="login-logo">Credencia<span>Gest</span></div>
+    <div class="login-subtitle">Sistema de Gestão de Credenciamento</div>
+    <div class="login-error" id="login-error"></div>
+    <div class="login-field">
+      <label>E-mail</label>
+      <input type="email" id="login-email" placeholder="seu@email.com" autocomplete="email">
+    </div>
+    <div class="login-field">
+      <label>Senha</label>
+      <input type="password" id="login-senha" placeholder="••••••••" autocomplete="current-password">
+    </div>
+    <button class="login-btn" id="login-btn" onclick="fazerLogin()">Entrar</button>
+    <div style="text-align:center;margin-top:12px;font-size:12px;color:var(--text3)">
+      <a onclick="recuperarSenha()" style="color:var(--accent);cursor:pointer">Esqueci minha senha</a>
+    </div>
+    <div style="text-align:center;margin-top:28px;padding-top:16px;border-top:0.5px solid var(--border);font-size:11px;color:var(--text3)">
+      Desenvolvido por <strong style="color:var(--text2)">Aglair Sousa</strong>
+    </div>
+  </div>
+</div>
+
+<header>
+  <div style="display:flex;align-items:center;gap:12px">
+    <div class="logo" style="cursor:pointer" onclick="goHome()">Credencia<span>Gest</span></div>
+    <div id="header-proc-name" style="font-size:13px;color:var(--text2);display:none">/ <span id="hpn-text"></span></div>
+  </div>
+  <div class="header-actions">
+    <div class="user-info" id="header-user-info" style="display:none">
+      <span id="header-user-email"></span>
+      <button class="btn sm" onclick="fazerLogout()" title="Sair">&#x23FB; Sair</button>
+    </div>
+    <button class="btn" id="btn-processos" onclick="goHome()">&#128193; Processos</button>
+    <button class="btn" onclick="showTabDirect('importar')">&#8679; Importar PDF</button>
+    <button class="btn" onclick="salvarProcesso(true)">&#128190; Salvar</button>
+    <button class="btn success" onclick="exportExcel()">&#8681; Exportar Excel</button>
+  </div>
+</header>
+<div id="proc-banner" class="hidden">
+  <span class="autosave-dot"></span>
+  <span id="proc-banner-text">Processo ativo</span>
+  <span style="margin-left:auto;font-size:12px;color:var(--text3)" id="last-saved-label"></span>
+</div>
+
+<!-- MODAL NOVO/EDITAR PROCESSO -->
+<div class="modal-overlay hidden" id="modal-processo">
+  <div class="modal">
+    <div class="modal-header">
+      <div style="font-weight:600;font-size:15px" id="modal-proc-title">Novo processo</div>
+      <button class="btn sm" onclick="fecharModal()">&#10005;</button>
+    </div>
+    <div class="modal-body">
+      <div style="display:grid;gap:14px">
+        <div class="field"><label>Número do processo / edital</label><input id="proc-numero" placeholder="Ex: Credenciamento 00005/2024" style="width:100%"></div>
+
+        <div style="border-top:0.5px solid var(--border);padding-top:14px">
+          <div style="font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:10px">🏛️ Órgão / Contratante</div>
+          <div style="display:grid;gap:10px">
+            <div class="field"><label>Órgão / Entidade</label><input id="proc-orgao" placeholder="Ex: Prefeitura Municipal de Queimadas" style="width:100%"></div>
+            <div class="field"><label>Município / UF</label><input id="proc-municipio" placeholder="Ex: Queimadas — PB" style="width:100%"></div>
+          </div>
+        </div>
+
+        <div style="border-top:0.5px solid var(--border);padding-top:14px">
+          <div style="font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:10px">📋 Objeto / Detalhes</div>
+          <div style="display:grid;gap:10px">
+            <div class="field"><label>Objeto do processo</label><textarea id="proc-objeto" style="width:100%;height:60px;resize:vertical" placeholder="Ex: Credenciamento de pessoas jurídicas para prestação de serviços especializados de saúde..."></textarea></div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+              <div class="field"><label>Data de abertura</label><input type="date" id="proc-data-abertura" style="width:100%"></div>
+              <div class="field"><label>Status</label>
+                <select id="proc-status" style="width:100%">
+                  <option value="em_andamento">Em andamento</option>
+                  <option value="concluido">Concluído</option>
+                  <option value="fracassado">Fracassado</option>
+                  <option value="cancelado">Cancelado</option>
+                </select>
+              </div>
+            </div>
+            <div class="field"><label>Observações</label><textarea id="proc-obs" style="width:100%;height:60px;resize:vertical" placeholder="Anotações gerais sobre o processo..."></textarea></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn" onclick="fecharModal()">Cancelar</button>
+      <button class="btn primary" onclick="confirmarProcesso()">&#10003; Salvar processo</button>
+    </div>
+  </div>
+</div>
+
+<!-- TELA HOME DE PROCESSOS -->
+<div id="processo-home" style="display:none">
+  <div class="main">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:12px">
+      <div>
+        <div style="font-size:20px;font-weight:700">Meus processos</div>
+        <div style="font-size:13px;color:var(--text2);margin-top:2px">Selecione um processo para continuar ou crie um novo</div>
+      </div>
+      <div style="display:flex;gap:8px">
+        <button class="btn" onclick="importarBackup()">&#8679; Carregar backup</button>
+        <button class="btn primary" onclick="abrirModalNovoProcesso()">+ Novo processo</button>
+      </div>
+    </div>
+    <div id="lista-processos"></div>
+    <div id="home-empty" style="display:none">
+      <div style="text-align:center;padding:60px 20px;color:var(--text3)">
+        <div style="font-size:48px;margin-bottom:16px">&#128193;</div>
+        <div style="font-size:16px;font-weight:500;color:var(--text2);margin-bottom:8px">Nenhum processo cadastrado</div>
+        <div style="font-size:13px;margin-bottom:20px">Crie seu primeiro processo para começar a gestão dos quantitativos.</div>
+        <button class="btn primary" onclick="abrirModalNovoProcesso()">+ Criar primeiro processo</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="main" id="app-main" style="display:none">
+  <div id="metrics-bar" class="metrics"></div>
+
+  <div class="tabs">
+    <button class="tab active" onclick="showTab(event,'itens')">&#9776; Itens</button>
+    <button class="tab" onclick="showTab(event,'empresas')">&#127970; Empresas</button>
+    <button class="tab" onclick="showTab(event,'vinculacao')">&#128279; Vinculação</button>
+    <button class="tab" onclick="showTab(event,'divisao')">&#9878; Divisão</button>
+    <button class="tab" onclick="showTab(event,'importar')">&#8679; Importar</button>
+    <button class="tab" onclick="showTab(event,'relatorio')">&#128196; Relatório</button>
+  </div>
+
+  <!-- ITENS -->
+  <div id="tab-itens" class="section active">
+    <div class="card">
+      <div class="card-title">Adicionar item</div>
+      <div class="row">
+        <div class="field"><label>Código</label><input class="w80" id="i-cod" placeholder="0001"></div>
+        <div class="field flex1"><label>Descrição do serviço</label><input id="i-desc" placeholder="Ex: CONSULTA OFTALMOLOGICA" style="width:100%"></div>
+        <div class="field"><label>Qtde</label><input class="w80" type="number" id="i-qtde" min="0" value="0"></div>
+        <div class="field"><label>Unidade</label><input class="w80" id="i-und" placeholder="UND"></div>
+        <div class="field"><label>Valor unitário (R$)</label><input class="w120" type="number" id="i-vunit" min="0" step="0.01" value="0"></div>
+        <div class="field" style="justify-content:flex-end"><button class="btn primary" onclick="addItem()">+ Adicionar</button></div>
+      </div>
+      <div class="alert info" style="margin-top:10px;margin-bottom:0;font-size:12px">
+        &#128279; Para vincular empresas aos itens, use a aba <strong>Vinculação</strong>.
+      </div>
+    </div>
+    <div class="card">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:8px">
+        <div class="card-title" style="margin-bottom:0">Itens cadastrados (<span id="count-itens">0</span>)</div>
+        <input placeholder="&#128269; Buscar..." style="font-size:13px;padding:6px 10px;width:200px" oninput="renderItens(this.value)">
+      </div>
+      <div class="scroll-x">
+        <table id="tabela-itens">
+          <thead><tr><th>Cód.</th><th>Descrição</th><th>Qtde</th><th>Und</th><th>Vl. unitário</th><th>Vl. total</th><th>Empresas vinculadas</th><th></th></tr></thead>
+          <tbody id="tbody-itens"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- EMPRESAS -->
+  <div id="tab-empresas" class="section">
+    <div class="card">
+      <div class="card-title">Adicionar empresa ao processo</div>
+      <div class="row" style="align-items:flex-end;gap:8px;flex-wrap:wrap">
+        <div class="field flex1" style="position:relative">
+          <label>Buscar no banco ou digitar nova empresa</label>
+          <input id="e-busca" placeholder="Digite nome ou CNPJ..." style="width:100%" oninput="buscarEmpresaBanco()" autocomplete="off">
+          <div id="e-sugestoes" style="display:none;position:absolute;top:100%;left:0;right:0;background:var(--bg);border:0.5px solid var(--border2);border-radius:var(--radius);z-index:100;max-height:200px;overflow-y:auto;box-shadow:0 4px 16px rgba(0,0,0,0.12)"></div>
+        </div>
+        <div class="field" style="justify-content:flex-end">
+          <button class="btn primary" onclick="abrirModalNovaEmpresa()">+ Nova empresa</button>
+        </div>
+      </div>
+    </div>
+    <div class="card">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+        <div class="card-title" style="margin:0">Empresas neste processo (<span id="count-emp">0</span>)</div>
+        <button class="btn sm" onclick="abrirModalBancoEmpresas()" title="Gerenciar banco de empresas">&#128197; Banco de empresas</button>
+      </div>
+      <div class="scroll-x">
+        <table><thead><tr><th>#</th><th>Razão social</th><th>CNPJ</th><th>Itens vinculados</th><th>Valor total alocado</th><th></th></tr></thead>
+        <tbody id="tbody-emp"></tbody></table>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL NOVA EMPRESA -->
+  <div id="modal-nova-empresa" class="modal-overlay hidden">
+    <div class="modal" style="max-width:540px">
+      <div class="modal-header"><span id="modal-emp-title">Nova empresa</span><button class="modal-close" onclick="fecharModalEmpresa()">&#10005;</button></div>
+
+      <!-- CNPJ + botão consultar -->
+      <div style="display:flex;gap:8px;align-items:flex-end;margin-bottom:12px">
+        <div class="field flex1" style="margin:0">
+          <label>CNPJ</label>
+          <input id="ne-cnpj" placeholder="00.000.000/0001-00" style="width:100%" oninput="formatarCNPJ(this)" maxlength="18">
+        </div>
+        <button class="btn primary" onclick="consultarCNPJ()" id="btn-consultar-cnpj" style="white-space:nowrap">&#128269; Consultar Receita</button>
+      </div>
+
+      <!-- Status da consulta -->
+      <div id="ne-cnpj-status" style="font-size:12px;margin-bottom:10px;padding:8px 12px;border-radius:var(--radius);display:none"></div>
+
+      <!-- Card com dados da Receita -->
+      <div id="ne-dados-receita" style="display:none;background:var(--bg2);border:0.5px solid var(--border);border-radius:var(--radius);padding:14px;margin-bottom:14px;font-size:13px">
+        <div style="font-weight:700;font-size:14px;margin-bottom:10px;color:var(--text)" id="ne-razao-social"></div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px 16px">
+          <div><span style="color:var(--text3)">Nome fantasia:</span><br><span id="ne-fantasia" style="font-weight:500"></span></div>
+          <div><span style="color:var(--text3)">Situação:</span><br><span id="ne-situacao" style="font-weight:600"></span></div>
+          <div><span style="color:var(--text3)">Município/UF:</span><br><span id="ne-municipio"></span></div>
+          <div><span style="color:var(--text3)">Telefone:</span><br><span id="ne-telefone"></span></div>
+          <div style="grid-column:1/-1"><span style="color:var(--text3)">E-mail:</span><br><span id="ne-email"></span></div>
+          <div style="grid-column:1/-1"><span style="color:var(--text3)">Endereço:</span><br><span id="ne-endereco"></span></div>
+        </div>
+      </div>
+
+      <!-- Razão social manual (fallback) -->
+      <div class="field" id="ne-nome-field">
+        <label>Razão social *</label>
+        <input id="ne-nome" placeholder="Ou digite manualmente se não encontrado" style="width:100%">
+      </div>
+
+      <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px">
+        <button class="btn" onclick="fecharModalEmpresa()">Cancelar</button>
+        <button class="btn primary" onclick="salvarNovaEmpresa()">Salvar e adicionar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL BANCO DE EMPRESAS -->
+  <div id="modal-banco-empresas" class="modal-overlay hidden">
+    <div class="modal" style="max-width:680px">
+      <div class="modal-header"><span>&#128197; Banco de empresas</span><button class="modal-close" onclick="document.getElementById('modal-banco-empresas').classList.add('hidden')">&#10005;</button></div>
+      <div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap">
+        <input id="banco-busca" placeholder="🔍 Buscar no banco..." style="flex:1;font-size:13px;padding:7px 10px;border:0.5px solid var(--border2);border-radius:var(--radius);background:var(--bg);color:var(--text)" oninput="renderBancoEmpresas()">
+        <label class="btn sm" style="cursor:pointer">&#8679; Importar Excel<input type="file" accept=".xlsx,.xls" style="display:none" onchange="importEmpresasBancoExcel(this)"></label>
+      </div>
+      <div class="scroll-x" style="max-height:360px;overflow-y:auto">
+        <table><thead><tr><th>#</th><th>Razão social</th><th>CNPJ</th><th>Processos</th><th></th></tr></thead>
+        <tbody id="tbody-banco-emp"></tbody></table>
+      </div>
+      <div style="font-size:12px;color:var(--text3);margin-top:10px" id="banco-total-label"></div>
+    </div>
+  </div>
+
+  <!-- VINCULAÇÃO -->
+  <div id="tab-vinculacao" class="section">
+    <div class="card" style="margin-bottom:16px">
+      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px">
+        <div>
+          <div class="card-title" style="margin-bottom:2px">Vinculação de empresas por item</div>
+          <div style="font-size:12px;color:var(--text2)">Selecione quais empresas participam de cada item.</div>
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button class="btn" onclick="vincularTodosEmTodos()">&#10003; Vincular todas em todos</button>
+          <button class="btn danger sm" onclick="desvincularTodos()">&#10005; Limpar tudo</button>
+        </div>
+      </div>
+    </div>
+    <div id="vinculacao-container"></div>
+  </div>
+
+  <!-- DIVISÃO -->
+  <div id="tab-divisao" class="section">
+    <div class="card" style="margin-bottom:16px">
+      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
+        <div class="card-title" style="margin-bottom:0">Divisão de quantitativos por item</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button class="btn" onclick="dividirIgual()">&#9776; Dividir igualmente</button>
+          <button class="btn" onclick="dividirProporcional()">&#9878; Divisão proporcional</button>
+          <button class="btn danger sm" onclick="resetDivisao()">Resetar tudo</button>
+        </div>
+      </div>
+    </div>
+    <div id="divisao-container"></div>
+  </div>
+
+  <!-- IMPORTAR -->
+  <div id="tab-importar" class="section">
+    <div class="card">
+      <div class="card-title">Importar PDF — Portal de Compras Públicas</div>
+      <p style="font-size:13px;color:var(--text2);margin-bottom:14px">Suba o PDF com a relação de vencedores do processo. O sistema extrai automaticamente empresas e itens.</p>
+      <div class="upload-zone" id="drop-zone" onclick="document.getElementById('pdf-input').click()">
+        <div style="font-size:40px;margin-bottom:10px">&#128196;</div>
+        <div style="font-weight:500;margin-bottom:4px">Clique para selecionar ou arraste o PDF aqui</div>
+        <div style="font-size:12px;color:var(--text3)">Formato: Portal de Compras Públicas — Vencedores do Processo</div>
+        <input type="file" id="pdf-input" accept=".pdf" style="display:none" onchange="handlePDF(this)">
+      </div>
+      <div id="pdf-status" style="margin-top:14px"></div>
+      <div id="pdf-preview" style="margin-top:4px"></div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Importar via texto colado</div>
+      <p style="font-size:13px;color:var(--text2);margin-bottom:10px">Copie e cole o conteúdo do PDF diretamente:</p>
+      <textarea id="txt-import" style="width:100%;height:130px;font-size:12px;font-family:monospace;resize:vertical" placeholder="Cole aqui o texto extraído do documento..."></textarea>
+      <div style="margin-top:10px;display:flex;gap:8px">
+        <button class="btn primary" onclick="parsePastedText()">Processar texto</button>
+        <button class="btn" onclick="document.getElementById('txt-import').value=''">Limpar</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">&#128202; Importar itens via Excel (.xlsx)</div>
+      <p style="font-size:13px;color:var(--text2);margin-bottom:10px">
+        Suba uma planilha Excel com os itens. O sistema reconhece automaticamente as colunas pelo cabeçalho.
+      </p>
+      <div style="background:var(--bg2);border-radius:var(--radius);padding:10px 14px;margin-bottom:14px;font-size:12px;">
+        <div style="font-weight:600;margin-bottom:6px;color:var(--text2);text-transform:uppercase;font-size:11px;letter-spacing:0.3px">Colunas reconhecidas automaticamente</div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:6px;">
+          <div><code style="background:var(--bg);padding:2px 6px;border-radius:4px;font-size:11px">Item</code> ou <code style="background:var(--bg);padding:2px 6px;border-radius:4px;font-size:11px">Código</code></div>
+          <div><code style="background:var(--bg);padding:2px 6px;border-radius:4px;font-size:11px">Descricao</code> ou <code style="background:var(--bg);padding:2px 6px;border-radius:4px;font-size:11px">Produto</code></div>
+          <div><code style="background:var(--bg);padding:2px 6px;border-radius:4px;font-size:11px">Quantidade</code> ou <code style="background:var(--bg);padding:2px 6px;border-radius:4px;font-size:11px">Qtde</code></div>
+          <div><code style="background:var(--bg);padding:2px 6px;border-radius:4px;font-size:11px">Unidade</code> ou <code style="background:var(--bg);padding:2px 6px;border-radius:4px;font-size:11px">UND</code></div>
+          <div><code style="background:var(--bg);padding:2px 6px;border-radius:4px;font-size:11px">Valor Unitario</code> ou <code style="background:var(--bg);padding:2px 6px;border-radius:4px;font-size:11px">Vl Unit</code></div>
+        </div>
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+        <label class="btn primary" style="cursor:pointer;display:inline-block">
+          &#8679; Selecionar arquivo Excel
+          <input type="file" id="xlsx-itens-input" accept=".xlsx,.xls" style="display:none" onchange="importItensExcel(this)">
+        </label>
+        <button class="btn" onclick="baixarModeloItens()">&#8681; Baixar modelo Excel</button>
+      </div>
+      <div id="xlsx-itens-status" style="margin-top:12px"></div>
+      <div id="xlsx-itens-preview" style="margin-top:10px;overflow-x:auto"></div>
+    </div>
+
+    <div class="card" style="border-top:3px solid var(--border);padding-top:14px">
+      <div style="font-size:11px;color:var(--text3);font-weight:500;text-transform:uppercase;letter-spacing:0.3px;margin-bottom:8px">Alternativa — Importar itens via texto (CSV)</div>
+      <p style="font-size:12px;color:var(--text3);margin-bottom:8px">Cole no formato: <code style="font-size:11px;background:var(--bg2);padding:1px 5px;border-radius:4px">código;descrição;qtde;unidade;valor_unitário</code></p>
+      <textarea id="csv-import" style="width:100%;height:80px;font-size:12px;font-family:monospace;resize:vertical" placeholder="0001;CONSULTA OFTALMOLOGICA;1000;Cons;95,00&#10;0002;ANGIOGRAFIA FLUORESCEINA;100;UND;400,00"></textarea>
+      <div style="margin-top:8px;display:flex;gap:8px">
+        <button class="btn sm" onclick="parseCSV()">Importar CSV</button>
+        <button class="btn sm" onclick="document.getElementById('csv-import').value=''">Limpar</button>
+      </div>
+      <div id="csv-status" style="margin-top:8px"></div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">&#127970; Importar empresas via Excel (.xlsx)</div>
+      <p style="font-size:13px;color:var(--text2);margin-bottom:10px">
+        Suba uma planilha Excel com as empresas. O sistema reconhece automaticamente as colunas pelo cabeçalho.
+      </p>
+      <div style="background:var(--bg2);border-radius:var(--radius);padding:10px 14px;margin-bottom:14px;font-size:12px;">
+        <div style="font-weight:600;margin-bottom:6px;color:var(--text2);text-transform:uppercase;font-size:11px;letter-spacing:0.3px">Colunas reconhecidas automaticamente</div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:6px;">
+          <div><code style="background:var(--bg);padding:2px 6px;border-radius:4px;font-size:11px">Nome</code> ou <code style="background:var(--bg);padding:2px 6px;border-radius:4px;font-size:11px">Razao Social</code></div>
+          <div><code style="background:var(--bg);padding:2px 6px;border-radius:4px;font-size:11px">CNPJ</code> ou <code style="background:var(--bg);padding:2px 6px;border-radius:4px;font-size:11px">Documento</code></div>
+        </div>
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+        <label class="btn primary" style="cursor:pointer;display:inline-block">
+          &#8679; Selecionar arquivo Excel
+          <input type="file" id="xlsx-emp-input" accept=".xlsx,.xls" style="display:none" onchange="importEmpresasExcel(this)">
+        </label>
+        <button class="btn" onclick="baixarModeloEmpresas()">&#8681; Baixar modelo Excel</button>
+      </div>
+      <div id="xlsx-emp-status" style="margin-top:12px"></div>
+      <div style="margin-top:10px">
+        <div id="xlsx-emp-preview" style="overflow-x:auto"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- RELATÓRIO -->
+  <div id="tab-relatorio" class="section">
+    <div class="card" id="rel-toolbar" style="margin-bottom:16px">
+      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px">
+        <div style="display:flex;gap:6px;flex-wrap:wrap">
+          <button class="rel-tab active" id="rel-btn-consolidado" onclick="switchRelatorio('consolidado')">&#128200; Consolidado</button>
+          <button class="rel-tab" id="rel-btn-empresa" onclick="switchRelatorio('empresa')">&#127970; Por empresa</button>
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <select id="rel-emp-select" style="display:none;font-size:13px;padding:6px 10px;border:0.5px solid var(--border2);border-radius:var(--radius);background:var(--bg);color:var(--text)">
+            <option value="">Todas as empresas</option>
+          </select>
+          <button class="btn" onclick="imprimirRelatorio()">&#128438; Imprimir</button>
+          <button class="btn" onclick="exportarRelatorioPDF()">&#128196; PDF</button>
+          <button class="btn success" onclick="exportarRelatorioExcel()">&#128202; Excel</button>
+        </div>
+      </div>
+    </div>
+    <div id="rel-content"></div>
+  </div>
+</div>
+
+<script>
+// ---- SUPABASE CONFIG ----
+const SUPA_URL = 'https://mpgwgiajercrukuinnnt.supabase.co';
+const SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1wZ3dnaWFqZXJjcnVrdWlubm50Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI1MDM2NDYsImV4cCI6MjA5ODA3OTY0Nn0.CyWIkq98vCELYbMpQhJmO8Dpd5HWP4DvlRLNMBewnZY';
+const supa = supabase.createClient(SUPA_URL, SUPA_KEY);
+
+pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+let itens = [];
+let empresas = [];
+let divisoes = {};
+let processoAtivo = null;
+let autoSaveTimer = null;
+let _processosCache = [];
+let _usuarioAtual = null;
+
+// ---- LOGIN / AUTH ----
+function setLoginError(msg) {
+  const el = document.getElementById('login-error');
+  el.textContent = msg;
+  el.style.display = msg ? 'block' : 'none';
+}
+
+function setLoginLoading(loading) {
+  const btn = document.getElementById('login-btn');
+  btn.disabled = loading;
+  btn.innerHTML = loading
+    ? '<span class="login-spinner"></span>Entrando...'
+    : 'Entrar';
+}
+
+async function fazerLogin() {
+  const email = document.getElementById('login-email').value.trim();
+  const senha = document.getElementById('login-senha').value;
+  if (!email || !senha) { setLoginError('Preencha e-mail e senha.'); return; }
+
+  setLoginLoading(true);
+  setLoginError('');
+
+  try {
+    const result = await supa.auth.signInWithPassword({ email, password: senha });
+    if (result.error) throw result.error;
+    _usuarioAtual = result.data.user;
+    await iniciarSessao();
+  } catch (err) {
+    const msgs = {
+      'Invalid login credentials': 'E-mail ou senha incorretos.',
+      'Email not confirmed': 'Confirme seu e-mail antes de entrar.',
+    };
+    setLoginError(msgs[err.message] || err.message);
+  } finally {
+    setLoginLoading(false);
+  }
+}
+
+async function fazerLogout() {
+  if (!confirm('Deseja sair da sua conta?')) return;
+  clearInterval(autoSaveTimer);
+  await supa.auth.signOut();
+  _usuarioAtual = null;
+  _processosCache = [];
+  processoAtivo = null;
+  document.getElementById('login-screen').classList.remove('hidden');
+  document.getElementById('header-user-info').style.display = 'none';
+  document.getElementById('app-main').style.display = 'none';
+  document.getElementById('processo-home').style.display = 'none';
+  document.getElementById('processo-home').classList.remove('active');
+}
+
+async function recuperarSenha() {
+  const email = document.getElementById('login-email').value.trim();
+  if (!email) { setLoginError('Digite seu e-mail para recuperar a senha.'); return; }
+  const { error } = await supa.auth.resetPasswordForEmail(email, {
+    redirectTo: 'https://fabulous-sunshine-590256.netlify.app/'
+  });
+  if (error) { setLoginError(error.message); return; }
+  alert('Enviamos um link de recuperação para ' + email + '. Clique no link do e-mail para redefinir sua senha.');
+}
+
+async function iniciarSessao() {
+  document.getElementById('login-screen').classList.add('hidden');
+  const email = _usuarioAtual.email;
+  document.getElementById('header-user-email').textContent = email;
+  document.getElementById('header-user-info').style.display = 'flex';
+  await carregarProcessosDB();
+  await carregarBancoEmpresas();
+  document.getElementById('processo-home').style.display = 'block';
+  document.getElementById('processo-home').classList.add('active');
+  renderListaProcessos();
+}
+
+// ---- GESTÃO DE PROCESSOS — SUPABASE ----
+async function carregarProcessosDB() {
+  const { data, error } = await supa
+    .from('processos')
+    .select('*')
+    .order('atualizado_em', { ascending: false });
+  if (error) { console.error('Erro ao carregar:', error); return; }
+  _processosCache = (data || []).map(dbToLocal);
+}
+
+function localToDB(p) {
+  return {
+    id: p.id,
+    numero: p.numero || '',
+    orgao: p.orgao || '',
+    municipio: p.municipio || '',
+    objeto: p.objeto || '',
+    status: p.status || 'em_andamento',
+    obs: p.obs || '',
+    data_abertura: p.dataAbertura || null,
+    itens: p.itens || [],
+    empresas: p.empresas || [],
+    divisoes: p.divisoes || {},
+    criado_em: p.criadoEm || new Date().toISOString(),
+    atualizado_em: p.atualizadoEm || new Date().toISOString(),
+    user_id: _usuarioAtual ? _usuarioAtual.id : null
+  };
+}
+
+function dbToLocal(d) {
+  return {
+    id: d.id,
+    numero: d.numero || '',
+    orgao: d.orgao || '',
+    municipio: d.municipio || '',
+    objeto: d.objeto || '',
+    status: d.status || 'em_andamento',
+    obs: d.obs || '',
+    dataAbertura: d.data_abertura || '',
+    itens: d.itens || [],
+    empresas: d.empresas || [],
+    divisoes: d.divisoes || {},
+    criadoEm: d.criado_em,
+    atualizadoEm: d.atualizado_em
+  };
+}
+
+function getProcessos() {
+  return _processosCache;
+}
+
+function salvarProcessos(lista) {
+  _processosCache = lista;
+  // Salva cada processo individualmente via upsert
+  lista.forEach(p => {
+    supa.from('processos').upsert(localToDB(p)).then(({ error }) => {
+      if (error) console.error('Erro ao salvar processo:', error);
+    });
+  });
+}
+
+async function inserirProcessoDB(p) {
+  const { data, error } = await supa.from('processos').insert(localToDB(p)).select().single();
+  if (error) throw error;
+  return dbToLocal(data);
+}
+
+async function atualizarProcessoDB(p) {
+  const { error } = await supa.from('processos').upsert(localToDB(p));
+  if (error) throw error;
+}
+
+async function excluirProcessoDB(id) {
+  const { error } = await supa.from('processos').delete().eq('id', id);
+  if (error) throw error;
+}
+
+// ---- GESTÃO DE PROCESSOS ----
+function abrirModalNovoProcesso(id) {
+  const modal = document.getElementById('modal-processo');
+  document.getElementById('modal-proc-title').textContent = id ? 'Editar processo' : 'Novo processo';
+  if (id) {
+    const p = getProcessos().find(x => x.id === id);
+    if (!p) return;
+    document.getElementById('proc-numero').value = p.numero || '';
+    document.getElementById('proc-orgao').value = p.orgao || '';
+    document.getElementById('proc-municipio').value = p.municipio || '';
+    document.getElementById('proc-objeto').value = p.objeto || '';
+    document.getElementById('proc-data-abertura').value = p.dataAbertura || '';
+    document.getElementById('proc-status').value = p.status || 'em_andamento';
+    document.getElementById('proc-obs').value = p.obs || '';
+    modal.dataset.editId = id;
+  } else {
+    ['proc-numero','proc-orgao','proc-municipio','proc-obs'].forEach(x => document.getElementById(x).value = '');
+    document.getElementById('proc-objeto').value = '';
+    document.getElementById('proc-data-abertura').value = '';
+    document.getElementById('proc-status').value = 'em_andamento';
+    delete modal.dataset.editId;
+  }
+  modal.classList.remove('hidden');
+}
+
+function fecharModal() {
+  document.getElementById('modal-processo').classList.add('hidden');
+  // Re-renderiza a lista se estiver na tela home (sem processo ativo)
+  if (!processoAtivo) renderListaProcessos();
+}
+
+async function confirmarProcesso() {
+  const numero = document.getElementById('proc-numero').value.trim();
+  const orgao = document.getElementById('proc-orgao').value.trim();
+  const municipio = document.getElementById('proc-municipio').value.trim();
+  const objeto = document.getElementById('proc-objeto').value.trim();
+  const dataAbertura = document.getElementById('proc-data-abertura').value;
+  const status = document.getElementById('proc-status').value;
+  const obs = document.getElementById('proc-obs').value.trim();
+  if (!numero) { alert('Informe o número do processo.'); return; }
+
+  const modal = document.getElementById('modal-processo');
+  const editId = modal.dataset.editId;
+  let lista = getProcessos();
+
+  if (editId) {
+    const idx = lista.findIndex(p => p.id === editId);
+    if (idx >= 0) {
+      lista[idx] = { ...lista[idx], numero, orgao, municipio, objeto, dataAbertura, status, obs, atualizadoEm: new Date().toISOString() };
+      await atualizarProcessoDB(lista[idx]);
+      _processosCache = lista;
+      if (processoAtivo && processoAtivo.id === editId) {
+        processoAtivo = lista[idx];
+        atualizarBannerProcesso();
+      }
+    }
+  } else {
+    const novo = {
+      id: 'p' + Date.now(),
+      numero, orgao, municipio, objeto, dataAbertura, status, obs,
+      criadoEm: new Date().toISOString(),
+      atualizadoEm: new Date().toISOString(),
+      itens: [], empresas: [], divisoes: {}
+    };
+    try {
+      const salvo = await inserirProcessoDB(novo);
+      _processosCache.push(salvo || novo);
+      fecharModal();
+      abrirProcesso(salvo ? salvo.id : novo.id);
+      return;
+    } catch(err) {
+      alert('Erro ao criar processo: ' + err.message);
+      return;
+    }
+  }
+
+  fecharModal();
+  renderListaProcessos();
+}
+
+function abrirProcesso(id) {
+  const lista = getProcessos();
+  const proc = lista.find(p => p.id === id);
+  if (!proc) return;
+
+  processoAtivo = proc;
+  itens = JSON.parse(JSON.stringify(proc.itens || []));
+  empresas = JSON.parse(JSON.stringify(proc.empresas || []));
+  divisoes = JSON.parse(JSON.stringify(proc.divisoes || {}));
+
+  document.getElementById('processo-home').classList.remove('active');
+  document.getElementById('processo-home').style.display = 'none';
+  document.getElementById('app-main').style.display = 'block';
+
+  atualizarBannerProcesso();
+  renderItens();
+  renderEmpresas();
+  renderEmpChipsAdd();
+  updateMetrics();
+
+  clearInterval(autoSaveTimer);
+  autoSaveTimer = setInterval(() => salvarProcesso(false), 30000);
+}
+
+async function salvarProcesso(manual = false) {
+  if (!processoAtivo) return;
+  let lista = getProcessos();
+  const idx = lista.findIndex(p => p.id === processoAtivo.id);
+  if (idx < 0) return;
+  lista[idx] = {
+    ...lista[idx],
+    itens: JSON.parse(JSON.stringify(itens)),
+    empresas: JSON.parse(JSON.stringify(empresas)),
+    divisoes: JSON.parse(JSON.stringify(divisoes)),
+    status: lista[idx].status,
+    atualizadoEm: new Date().toISOString()
+  };
+  processoAtivo = lista[idx];
+  _processosCache = lista;
+
+  try {
+    await atualizarProcessoDB(lista[idx]);
+    const label = document.getElementById('last-saved-label');
+    if (label) label.textContent = 'Salvo às ' + new Date().toLocaleTimeString('pt-BR', {hour:'2-digit',minute:'2-digit'});
+    if (manual) {
+      const banner = document.getElementById('proc-banner-text');
+      const orig = banner.textContent;
+      banner.textContent = '✓ Salvo com sucesso!';
+      setTimeout(() => { banner.textContent = orig; }, 2000);
+    }
+  } catch(err) {
+    console.error('Erro ao salvar:', err);
+    if (manual) alert('Erro ao salvar: ' + err.message);
+  }
+}
+
+function atualizarBannerProcesso() {
+  if (!processoAtivo) return;
+  document.getElementById('proc-banner').classList.remove('hidden');
+  document.getElementById('proc-banner-text').textContent = processoAtivo.numero + (processoAtivo.orgao ? ' — ' + processoAtivo.orgao : '');
+  document.getElementById('header-proc-name').style.display = 'flex';
+  document.getElementById('hpn-text').textContent = processoAtivo.numero;
+}
+
+function goHome() {
+  if (processoAtivo) salvarProcesso(false);
+  clearInterval(autoSaveTimer);
+  processoAtivo = null;
+  itens = []; empresas = []; divisoes = {};
+  document.getElementById('app-main').style.display = 'none';
+  document.getElementById('processo-home').style.display = 'block';
+  document.getElementById('processo-home').classList.add('active');
+  document.getElementById('proc-banner').classList.add('hidden');
+  document.getElementById('header-proc-name').style.display = 'none';
+  renderListaProcessos();
+}
+
+async function excluirProcesso(id, e) {
+  e.stopPropagation();
+  if (!confirm('Excluir este processo? Todos os dados serão perdidos.')) return;
+  try {
+    await excluirProcessoDB(id);
+    _processosCache = _processosCache.filter(p => p.id !== id);
+    renderListaProcessos();
+  } catch(err) {
+    alert('Erro ao excluir: ' + err.message);
+  }
+}
+
+async function duplicarProcesso(id, e) {
+  e.stopPropagation();
+  const orig = _processosCache.find(p => p.id === id);
+  if (!orig) return;
+  const novo = { ...JSON.parse(JSON.stringify(orig)), id: 'p' + Date.now(), numero: orig.numero + ' (cópia)', criadoEm: new Date().toISOString(), atualizadoEm: new Date().toISOString(), status: 'em_andamento' };
+  try {
+    const salvo = await inserirProcessoDB(novo);
+    _processosCache.push(salvo || novo);
+    renderListaProcessos();
+  } catch(err) {
+    alert('Erro ao duplicar: ' + err.message);
+  }
+}
+
+function exportarBackup() {
+  const dados = JSON.stringify(_processosCache);
+  const blob = new Blob([dados], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'backup_credenciamento_' + new Date().toISOString().slice(0,10) + '.json';
+  a.click();
+}
+
+async function importarBackup() {
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.accept = '.json';
+  input.onchange = function() {
+    const file = this.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = async function(e) {
+      try {
+        const dados = JSON.parse(e.target.result);
+        if (!Array.isArray(dados)) throw new Error('Formato inválido');
+        const existentes = getProcessos();
+        let adicionados = 0, ignorados = 0;
+        for (const p of dados) {
+          if (existentes.find(x => x.id === p.id)) {
+            ignorados++;
+            continue;
+          }
+          // Gera novo ID para evitar conflito entre contas
+          const pNovo = { ...p, id: 'p' + Date.now() + Math.random().toString(36).substr(2,4) };
+          await inserirProcessoDB(pNovo);
+          _processosCache.push(pNovo);
+          adicionados++;
+        }
+        renderListaProcessos();
+        alert(adicionados + ' processo(s) importado(s) com sucesso!' + (ignorados ? '\n' + ignorados + ' já existiam e foram ignorados.' : ''));
+      } catch(err) {
+        alert('Erro ao importar backup: ' + err.message);
+      }
+    };
+    reader.readAsText(file);
+  };
+  input.click();
+}
+
+function statusLabel(s) {
+  const map = { em_andamento: ['tag-em-andamento','Em andamento'], concluido: ['tag-concluido','Concluído'], fracassado: ['tag-fracassado','Fracassado'], cancelado: ['tag-cancelado','Cancelado'] };
+  const [cls, label] = map[s] || map['em_andamento'];
+  return `<span class="tag-status ${cls}">${label}</span>`;
+}
+
+function renderListaProcessos() {
+  const lista = getProcessos();
+  const container = document.getElementById('lista-processos');
+  const empty = document.getElementById('home-empty');
+  if (!lista.length) { container.innerHTML = ''; empty.style.display = 'block'; return; }
+  empty.style.display = 'none';
+
+  // Resumo global
+  const totalProcessos = lista.length;
+  const totalValor = lista.reduce((s,p) => s + (p.itens||[]).reduce((a,i) => a + i.qtde*i.vunit, 0), 0);
+  const emAndamento = lista.filter(p => p.status === 'em_andamento').length;
+
+  // Ordenação por prioridade: Em andamento → Novo → Concluído → Fracassado → Cancelado
+  const ordemStatus = { em_andamento: 0, concluido: 1, fracassado: 2, cancelado: 3 };
+  const listaOrdenada = lista.slice().sort((a, b) => {
+    const oa = ordemStatus[a.status] ?? 99;
+    const ob = ordemStatus[b.status] ?? 99;
+    if (oa !== ob) return oa - ob;
+    // Mesmo status: mais recente primeiro
+    return new Date(b.atualizadoEm || 0) - new Date(a.atualizadoEm || 0);
+  });
+
+  // Agrupa por status para exibir separadores
+  const grupos = [
+    { key: 'em_andamento', label: '🟡 Em andamento' },
+    { key: 'concluido',    label: '🟢 Concluídos' },
+    { key: 'fracassado',   label: '🔴 Fracassados' },
+    { key: 'cancelado',    label: '⚫ Cancelados' },
+  ];
+
+  function renderGrupo(processos) {
+    return processos.map(p => {
+      const nItens = (p.itens||[]).length;
+      const nEmp = (p.empresas||[]).length;
+      const vTotal = (p.itens||[]).reduce((s,i) => s + i.qtde*i.vunit, 0);
+      const atualizado = p.atualizadoEm ? new Date(p.atualizadoEm).toLocaleDateString('pt-BR') : '—';
+      return `<div class="proc-card" onclick="abrirProcesso('${p.id}')">
+        <div class="proc-icon">&#128196;</div>
+        <div class="proc-info">
+          <div class="proc-nome">${p.numero}</div>
+          ${(p.orgao||p.municipio) ? `<div class="proc-meta" style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+            <span style="font-size:11px;color:var(--text3)">🏛️</span>
+            <span>${[p.orgao,p.municipio].filter(Boolean).join(' · ')}</span>
+          </div>` : ''}
+          ${p.objeto ? `<div style="font-size:12px;color:var(--text2);margin-top:3px;display:flex;align-items:flex-start;gap:6px">
+            <span style="font-size:11px;color:var(--text3);margin-top:1px">📋</span>
+            <span style="flex:1;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;">${p.objeto}</span>
+          </div>` : ''}
+          <div style="margin-top:6px;display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+            ${statusLabel(p.status)}
+            <span style="font-size:11px;color:var(--text3)">${nItens} iten(s) · ${nEmp} empresa(s) · ${fmt(vTotal)}</span>
+            <span style="font-size:11px;color:var(--text3)">Salvo em ${atualizado}</span>
+          </div>
+        </div>
+        <div class="proc-actions" onclick="event.stopPropagation()">
+          <button class="btn sm" onclick="abrirModalNovoProcesso('${p.id}')" title="Editar dados do processo">&#9998;</button>
+          <button class="btn sm" onclick="duplicarProcesso('${p.id}',event)" title="Duplicar">&#10065;</button>
+          <button class="btn danger sm" onclick="excluirProcesso('${p.id}',event)" title="Excluir">&#10005;</button>
+        </div>
+      </div>`;
+    }).join('');
+  }
+
+  const gruposHtml = grupos.map(g => {
+    const procs = listaOrdenada.filter(p => (p.status || 'em_andamento') === g.key);
+    if (!procs.length) return '';
+    return `
+      <div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:0.5px;margin:18px 0 8px;padding-bottom:6px;border-bottom:0.5px solid var(--border)">${g.label} <span style="font-weight:400">(${procs.length})</span></div>
+      ${renderGrupo(procs)}
+    `;
+  }).join('');
+
+  container.innerHTML = `
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-bottom:20px">
+      <div class="metric"><div class="metric-label">Processos</div><div class="metric-value">${totalProcessos}</div></div>
+      <div class="metric"><div class="metric-label">Em andamento</div><div class="metric-value">${emAndamento}</div></div>
+      <div class="metric"><div class="metric-label">Valor total</div><div class="metric-value sm">${fmt(totalValor)}</div></div>
+      <div class="metric" style="cursor:pointer;border-style:dashed" onclick="exportarBackup()"><div class="metric-label">Backup</div><div style="font-size:13px;color:var(--accent);font-weight:600;margin-top:6px">&#8681; Exportar JSON</div></div>
+    </div>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
+      <div style="font-size:12px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:0.4px">Lista de processos</div>
+    </div>
+    ${gruposHtml}
+  `;
+}
+
+// ---- TAB NAVIGATION ----
+function showTab(e, t) {
+  document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(b => b.classList.remove('active'));
+  document.getElementById('tab-' + t).classList.add('active');
+  e.target.classList.add('active');
+  if (t === 'divisao') renderDivisao();
+  if (t === 'vinculacao') renderVinculacao();
+  if (t === 'relatorio') renderRelatorio();
+}
+
+function showTabDirect(t) {
+  if (!processoAtivo) return;
+  document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(b => {
+    b.classList.remove('active');
+    if (b.getAttribute('onclick') && b.getAttribute('onclick').includes("'" + t + "'")) b.classList.add('active');
+  });
+  document.getElementById('tab-' + t).classList.add('active');
+  if (t === 'divisao') renderDivisao();
+  if (t === 'vinculacao') renderVinculacao();
+}
+
+// ---- FORMATTING ----
+function fmt(v) {
+  return 'R$ ' + Number(v).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+// ---- METRICS ----
+function updateMetrics() {
+  const totalGeral = itens.reduce((s, i) => s + i.qtde * i.vunit, 0);
+  let alocado = 0;
+  empresas.forEach(e => {
+    itens.forEach(it => {
+      if (divisoes[it.cod] && divisoes[it.cod][e.id]) alocado += divisoes[it.cod][e.id] * it.vunit;
+    });
+  });
+  document.getElementById('metrics-bar').innerHTML = `
+    <div class="metric"><div class="metric-label">Total de itens</div><div class="metric-value">${itens.length}</div></div>
+    <div class="metric"><div class="metric-label">Empresas</div><div class="metric-value">${empresas.length}</div></div>
+    <div class="metric"><div class="metric-label">Valor total geral</div><div class="metric-value sm">${fmt(totalGeral)}</div></div>
+    <div class="metric"><div class="metric-label">Valor alocado</div><div class="metric-value sm">${fmt(alocado)}</div></div>
+  `;
+}
+
+// ---- VINCULAÇÃO (checkbox grid) ----
+function renderVinculacao() {
+  const container = document.getElementById('vinculacao-container');
+  if (!itens.length) {
+    container.innerHTML = '<div class="card"><div class="empty">Nenhum item cadastrado. Cadastre itens na aba Itens.</div></div>';
+    return;
+  }
+  if (!empresas.length) {
+    container.innerHTML = '<div class="card"><div class="empty">Nenhuma empresa cadastrada. Cadastre empresas na aba Empresas.</div></div>';
+    return;
+  }
+
+  const rows = itens.map((it, idx) => {
+    const checkboxes = empresas.map(e => {
+      const checked = it.empIds.includes(e.id) ? 'checked' : '';
+      const nomeAbrev = e.nome.length > 35 ? e.nome.substring(0, 33) + '…' : e.nome;
+      return `<label class="vinc-label" title="${e.nome}">
+        <input type="checkbox" class="vinc-cb" ${checked}
+          onchange="toggleVinculacao('${it.cod}','${e.id}',this.checked)">
+        <span class="vinc-emp-nome">${nomeAbrev}</span>
+      </label>`;
+    }).join('');
+
+    const countVinc = it.empIds.length;
+    const rowBg = idx % 2 === 0 ? '' : 'background:var(--bg2)';
+    return `<tr style="${rowBg}">
+      <td class="vinc-cod" style="width:60px;vertical-align:top;padding-top:12px">${it.cod}</td>
+      <td class="vinc-desc-cell" style="width:220px;vertical-align:top;padding-top:12px">
+        <div class="vinc-desc">${it.desc}</div>
+        <div class="vinc-count" id="vinc-count-${it.cod}">${countVinc} empresa(s)</div>
+      </td>
+      <td style="vertical-align:top;padding:8px 12px">
+        <div class="vinc-checkboxes">${checkboxes}</div>
+      </td>
+      <td style="width:110px;vertical-align:top;padding-top:10px;white-space:nowrap">
+        <button class="vinc-todas" onclick="vincularTodasNoItem('${it.cod}')">Todas</button>
+        <button class="vinc-todas" onclick="desvincularTodasNoItem('${it.cod}')" style="margin-top:4px;display:block">Nenhuma</button>
+      </td>
+    </tr>`;
+  }).join('');
+
+  container.innerHTML = `<div class="card" style="padding:0;overflow:hidden">
+    <div class="scroll-x">
+      <table class="vinc-table" style="min-width:600px">
+        <thead>
+          <tr>
+            <th style="width:60px">Item</th>
+            <th style="width:220px">Descrição</th>
+            <th>Empresas Vinculadas</th>
+            <th style="width:110px">Ações</th>
+          </tr>
+        </thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>
+  </div>`;
+}
+
+function toggleVinculacao(cod, empId, checked) {
+  const it = itens.find(i => i.cod === cod);
+  if (!it) return;
+  if (checked && !it.empIds.includes(empId)) it.empIds.push(empId);
+  if (!checked) it.empIds = it.empIds.filter(x => x !== empId);
+  // Atualiza contagem na linha sem re-renderizar tudo
+  const countEl = document.getElementById('vinc-count-' + cod);
+  if (countEl) countEl.textContent = it.empIds.length + ' empresa(s)';
+  renderItens();
+  salvarProcesso(false);
+}
+
+function vincularTodasNoItem(cod) {
+  const it = itens.find(i => i.cod === cod);
+  if (!it) return;
+  it.empIds = empresas.map(e => e.id);
+  renderVinculacao();
+  renderItens();
+  salvarProcesso(false);
+}
+
+function desvincularTodasNoItem(cod) {
+  const it = itens.find(i => i.cod === cod);
+  if (!it) return;
+  it.empIds = [];
+  renderVinculacao();
+  renderItens();
+  salvarProcesso(false);
+}
+
+function vincularTodosEmTodos() {
+  itens.forEach(it => { it.empIds = empresas.map(e => e.id); });
+  renderVinculacao();
+  renderItens();
+  salvarProcesso(false);
+}
+
+function desvincularTodos() {
+  if (!confirm('Remover todas as vinculações?')) return;
+  itens.forEach(it => { it.empIds = []; });
+  renderVinculacao();
+  renderItens();
+  salvarProcesso(false);
+}
+
+// stub mantido por compatibilidade com parseTextFromPDF que chama renderEmpChipsAdd
+function renderEmpChipsAdd() {}
+
+// ---- ITENS ----
+function addItem() {
+  const cod = document.getElementById('i-cod').value.trim();
+  const desc = document.getElementById('i-desc').value.trim();
+  const qtde = parseFloat(document.getElementById('i-qtde').value) || 0;
+  const und = document.getElementById('i-und').value.trim() || 'UND';
+  const vunit = parseFloat(document.getElementById('i-vunit').value) || 0;
+  if (!cod || !desc) { alert('Preencha código e descrição.'); return; }
+  const existing = itens.findIndex(i => i.cod === cod);
+  const item = { cod, desc, qtde, und, vunit, empIds: existing >= 0 ? itens[existing].empIds : [] };
+  if (existing >= 0) {
+    if (!confirm(`Item ${cod} já existe. Deseja sobrescrever?`)) return;
+    itens[existing] = item;
+  } else {
+    itens.push(item);
+  }
+  ['i-cod','i-desc','i-und'].forEach(id => document.getElementById(id).value = '');
+  document.getElementById('i-qtde').value = 0;
+  document.getElementById('i-vunit').value = 0;
+  renderItens();
+  updateMetrics();
+  salvarProcesso(false);
+}
+
+function removeItem(cod) {
+  if (!confirm('Remover item ' + cod + '?')) return;
+  itens = itens.filter(i => i.cod !== cod);
+  delete divisoes[cod];
+  renderItens();
+  updateMetrics();
+  salvarProcesso(false);
+}
+
+function editItem(cod) {
+  const it = itens.find(i => i.cod === cod);
+  if (!it) return;
+  document.getElementById('i-cod').value = it.cod;
+  document.getElementById('i-desc').value = it.desc;
+  document.getElementById('i-qtde').value = it.qtde;
+  document.getElementById('i-und').value = it.und;
+  document.getElementById('i-vunit').value = it.vunit;
+  showTabDirect('itens');
+  window.scrollTo(0, 0);
+}
+
+function renderItens(filter = '') {
+  const f = filter.toLowerCase();
+  const filtered = itens.filter(i => !f || i.desc.toLowerCase().includes(f) || i.cod.includes(f));
+  document.getElementById('count-itens').textContent = itens.length;
+  const tbody = document.getElementById('tbody-itens');
+  if (!filtered.length) {
+    tbody.innerHTML = `<tr><td colspan="8" class="empty">Nenhum item encontrado.</td></tr>`;
+    return;
+  }
+  tbody.innerHTML = filtered.map(i => {
+    const vtotal = i.qtde * i.vunit;
+    const empNames = i.empIds.map(id => {
+      const e = empresas.find(x => x.id === id);
+      return e ? `<span class="badge">${e.nome.split(' ').slice(0, 2).join(' ')}</span>` : '';
+    }).join('');
+    return `<tr>
+      <td style="font-weight:600;color:var(--info-text)">${i.cod}</td>
+      <td>${i.desc}</td>
+      <td>${i.qtde.toLocaleString('pt-BR')}</td>
+      <td style="color:var(--text2)">${i.und}</td>
+      <td>${fmt(i.vunit)}</td>
+      <td style="font-weight:600">${fmt(vtotal)}</td>
+      <td>${empNames || '<span style="color:var(--text3);font-size:12px">nenhuma</span>'}</td>
+      <td style="white-space:nowrap">
+        <button class="btn sm" onclick="editItem('${i.cod}')" title="Editar">&#9998;</button>
+        <button class="btn danger sm" onclick="removeItem('${i.cod}')" title="Remover">&#10005;</button>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+// ---- EMPRESAS ----
+// ---- BANCO DE EMPRESAS ----
+let _bancoEmpresas = []; // cache do banco global
+
+async function carregarBancoEmpresas() {
+  const { data, error } = await supa.from('banco_empresas').select('*').order('nome');
+  if (error) { console.error('Erro ao carregar banco:', error); return; }
+  _bancoEmpresas = data || [];
+}
+
+async function salvarEmpresaBanco(empresa) {
+  if (empresa.cnpj) {
+    const existe = _bancoEmpresas.find(e => e.cnpj === empresa.cnpj);
+    if (existe) return existe;
+  }
+  const payload = {
+    nome: empresa.nome,
+    cnpj: empresa.cnpj || null,
+    nome_fantasia: empresa.nome_fantasia || null,
+    situacao: empresa.situacao || null,
+    municipio: empresa.municipio || null,
+    uf: empresa.uf || null,
+    telefone: empresa.telefone || null,
+    email: empresa.email || null,
+    endereco: empresa.endereco || null,
+    criado_por: _usuarioAtual ? _usuarioAtual.id : null
+  };
+  const { data, error } = await supa.from('banco_empresas').insert(payload).select().single();
+  if (error) { console.error('Erro ao salvar banco:', error); return null; }
+  _bancoEmpresas.push(data);
+  return data;
+}
+
+async function excluirEmpresaBanco(id) {
+  const { error } = await supa.from('banco_empresas').delete().eq('id', id);
+  if (error) throw error;
+  _bancoEmpresas = _bancoEmpresas.filter(e => e.id !== id);
+}
+
+// Busca sugestões enquanto digita
+function buscarEmpresaBanco() {
+  const q = document.getElementById('e-busca').value.trim().toLowerCase();
+  const box = document.getElementById('e-sugestoes');
+  if (!q) { box.style.display = 'none'; return; }
+
+  const resultados = _bancoEmpresas.filter(e =>
+    e.nome.toLowerCase().includes(q) || (e.cnpj && e.cnpj.includes(q))
+  ).slice(0, 8);
+
+  let html = resultados.map(e => `
+    <div class="sugestao-item" onclick="selecionarEmpresaBanco('${e.id}')">
+      <span class="sug-nome">${e.nome}</span>
+      <span class="sug-cnpj">${e.cnpj || ''}</span>
+    </div>`).join('');
+
+  html += `<div class="sugestao-nova" onclick="abrirModalNovaEmpresa()">+ Cadastrar "${document.getElementById('e-busca').value.trim()}" como nova empresa</div>`;
+  box.innerHTML = html;
+  box.style.display = 'block';
+}
+
+function selecionarEmpresaBanco(bancoId) {
+  const emp = _bancoEmpresas.find(e => e.id === bancoId);
+  if (!emp) return;
+  document.getElementById('e-sugestoes').style.display = 'none';
+  document.getElementById('e-busca').value = '';
+  adicionarEmpresaAoProcesso(emp.nome, emp.cnpj || '');
+}
+
+function adicionarEmpresaAoProcesso(nome, cnpj) {
+  if (empresas.find(e => e.cnpj && e.cnpj === cnpj && cnpj)) {
+    alert('Empresa com esse CNPJ já está neste processo.'); return;
+  }
+  if (empresas.find(e => e.nome === nome)) {
+    alert('Empresa já está neste processo.'); return;
+  }
+  const id = 'e' + Date.now() + Math.random().toString(36).substr(2,5);
+  empresas.push({ id, nome, cnpj });
+  renderEmpresas();
+  updateMetrics();
+  refreshVinculacaoSeAtiva();
+  salvarProcesso(false);
+}
+
+// Fechar sugestões ao clicar fora
+document.addEventListener('click', e => {
+  if (!e.target.closest('#e-busca') && !e.target.closest('#e-sugestoes')) {
+    const box = document.getElementById('e-sugestoes');
+    if (box) box.style.display = 'none';
+  }
+});
+
+// Modal nova empresa
+function abrirModalNovaEmpresa() {
+  document.getElementById('e-sugestoes').style.display = 'none';
+  const texto = document.getElementById('e-busca').value.trim();
+  document.getElementById('ne-nome').value = texto;
+  document.getElementById('ne-cnpj').value = '';
+  document.getElementById('ne-cnpj-status').style.display = 'none';
+  document.getElementById('ne-dados-receita').style.display = 'none';
+  document.getElementById('modal-emp-title').textContent = 'Nova empresa';
+  _dadosReceita = null;
+  document.getElementById('modal-nova-empresa').classList.remove('hidden');
+  setTimeout(() => document.getElementById('ne-cnpj').focus(), 100);
+}
+
+function fecharModalEmpresa() {
+  document.getElementById('modal-nova-empresa').classList.add('hidden');
+}
+
+function formatarCNPJ(input) {
+  let v = input.value.replace(/\D/g, '').slice(0, 14);
+  if (v.length > 12) v = v.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{0,2})/, '$1.$2.$3/$4-$5');
+  else if (v.length > 8) v = v.replace(/^(\d{2})(\d{3})(\d{3})(\d{0,4})/, '$1.$2.$3/$4');
+  else if (v.length > 5) v = v.replace(/^(\d{2})(\d{3})(\d{0,3})/, '$1.$2.$3');
+  else if (v.length > 2) v = v.replace(/^(\d{2})(\d{0,3})/, '$1.$2');
+  input.value = v;
+  // Limpa dados anteriores ao digitar novo CNPJ
+  document.getElementById('ne-dados-receita').style.display = 'none';
+  document.getElementById('ne-cnpj-status').style.display = 'none';
+  document.getElementById('ne-nome').value = '';
+}
+
+let _dadosReceita = null;
+
+async function consultarCNPJ() {
+  const cnpj = document.getElementById('ne-cnpj').value.replace(/\D/g, '');
+  const status = document.getElementById('ne-cnpj-status');
+  const btn = document.getElementById('btn-consultar-cnpj');
+
+  if (cnpj.length !== 14) {
+    status.style.display = 'block';
+    status.style.background = 'rgba(163,45,45,0.08)';
+    status.style.color = 'var(--danger-text)';
+    status.textContent = '⚠️ CNPJ inválido. Digite os 14 dígitos.';
+    return;
+  }
+
+  btn.disabled = true;
+  btn.textContent = 'Consultando...';
+  status.style.display = 'block';
+  status.style.background = 'var(--bg2)';
+  status.style.color = 'var(--text2)';
+  status.textContent = '🔍 Consultando Receita Federal...';
+  document.getElementById('ne-dados-receita').style.display = 'none';
+  _dadosReceita = null;
+
+  try {
+    const resp = await fetch(`https://brasilapi.com.br/api/cnpj/v1/${cnpj}`);
+    if (!resp.ok) throw new Error('CNPJ não encontrado');
+    const d = await resp.json();
+    _dadosReceita = d;
+
+    // Preenche o card
+    document.getElementById('ne-razao-social').textContent = d.razao_social || '—';
+    document.getElementById('ne-fantasia').textContent = d.nome_fantasia || '—';
+
+    const sit = d.descricao_situacao_cadastral || d.situacao_cadastral || '—';
+    const sitEl = document.getElementById('ne-situacao');
+    sitEl.textContent = sit;
+    sitEl.style.color = sit.toLowerCase().includes('ativa') ? 'var(--success-text)' : 'var(--danger-text)';
+
+    document.getElementById('ne-municipio').textContent = (d.municipio || '') + (d.uf ? '/' + d.uf : '') || '—';
+    document.getElementById('ne-telefone').textContent = d.ddd_telefone_1 ? '(' + d.ddd_telefone_1.slice(0,2) + ') ' + d.ddd_telefone_1.slice(2) : '—';
+    document.getElementById('ne-email').textContent = d.email || '—';
+
+    const end = [
+      d.descricao_tipo_de_logradouro, d.logradouro, d.numero,
+      d.complemento, d.bairro, d.municipio, d.uf, d.cep
+    ].filter(Boolean).join(', ');
+    document.getElementById('ne-endereco').textContent = end || '—';
+
+    // Preenche razão social no campo manual também
+    document.getElementById('ne-nome').value = d.razao_social || '';
+    document.getElementById('ne-dados-receita').style.display = 'block';
+
+    status.style.background = 'rgba(29,158,117,0.08)';
+    status.style.color = 'var(--success-text)';
+    status.textContent = '✓ Empresa encontrada na Receita Federal';
+
+  } catch(err) {
+    status.style.background = 'rgba(163,45,45,0.08)';
+    status.style.color = 'var(--danger-text)';
+    status.textContent = '⚠️ CNPJ não encontrado. Preencha a razão social manualmente.';
+    document.getElementById('ne-nome').focus();
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '🔍 Consultar Receita';
+  }
+}
+
+async function buscarCNPJ() {} // mantido por compatibilidade
+
+async function salvarNovaEmpresa() {
+  const nome = document.getElementById('ne-nome').value.trim();
+  const cnpj = document.getElementById('ne-cnpj').value.trim();
+  if (!nome) { alert('Informe a razão social.'); return; }
+
+  const empresa = {
+    nome,
+    cnpj,
+    nome_fantasia: _dadosReceita ? (_dadosReceita.nome_fantasia || '') : '',
+    situacao: _dadosReceita ? (_dadosReceita.descricao_situacao_cadastral || _dadosReceita.situacao_cadastral || '') : '',
+    municipio: _dadosReceita ? (_dadosReceita.municipio || '') : '',
+    uf: _dadosReceita ? (_dadosReceita.uf || '') : '',
+    telefone: _dadosReceita ? (_dadosReceita.ddd_telefone_1 || '') : '',
+    email: _dadosReceita ? (_dadosReceita.email || '') : '',
+    endereco: _dadosReceita ? [
+      _dadosReceita.descricao_tipo_de_logradouro, _dadosReceita.logradouro,
+      _dadosReceita.numero, _dadosReceita.complemento, _dadosReceita.bairro,
+      _dadosReceita.municipio, _dadosReceita.uf, _dadosReceita.cep
+    ].filter(Boolean).join(', ') : ''
+  };
+
+  await salvarEmpresaBanco(empresa);
+  fecharModalEmpresa();
+  document.getElementById('e-busca').value = '';
+  adicionarEmpresaAoProcesso(nome, cnpj);
+}
+
+// Modal banco de empresas
+async function abrirModalBancoEmpresas() {
+  await carregarBancoEmpresas();
+  document.getElementById('banco-busca').value = '';
+  renderBancoEmpresas();
+  document.getElementById('modal-banco-empresas').classList.remove('hidden');
+}
+
+function renderBancoEmpresas() {
+  const q = document.getElementById('banco-busca').value.trim().toLowerCase();
+  const lista = q
+    ? _bancoEmpresas.filter(e => e.nome.toLowerCase().includes(q) || (e.cnpj && e.cnpj.includes(q)))
+    : _bancoEmpresas;
+
+  document.getElementById('banco-total-label').textContent = lista.length + ' empresa(s) no banco';
+  const tbody = document.getElementById('tbody-banco-emp');
+  if (!lista.length) {
+    tbody.innerHTML = '<tr><td colspan="5" class="empty">Nenhuma empresa encontrada.</td></tr>';
+    return;
+  }
+  tbody.innerHTML = lista.map((e, i) => `
+    <tr>
+      <td style="color:var(--text3)">${i+1}</td>
+      <td style="font-weight:600">${e.nome}</td>
+      <td style="font-size:12px;color:var(--text2)">${e.cnpj || '—'}</td>
+      <td style="font-size:12px;color:var(--text2)">—</td>
+      <td>
+        <button class="btn danger sm" onclick="confirmarExcluirBanco('${e.id}')">&#10005;</button>
+      </td>
+    </tr>`).join('');
+}
+
+async function confirmarExcluirBanco(id) {
+  if (!confirm('Remover do banco de empresas? Não afeta processos existentes.')) return;
+  try {
+    await excluirEmpresaBanco(id);
+    renderBancoEmpresas();
+  } catch(err) {
+    alert('Erro ao excluir: ' + err.message);
+  }
+}
+
+async function importEmpresasBancoExcel(input) {
+  const file = input.files[0];
+  if (!file) return;
+  // Reutiliza a lógica existente de importação Excel
+  const reader = new FileReader();
+  reader.onload = async function(e) {
+    try {
+      const wb = XLSX.read(e.target.result, { type: 'array' });
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      const rows = XLSX.utils.sheet_to_json(ws, { header: 1 });
+      if (!rows.length) { alert('Planilha vazia.'); return; }
+      const header = rows[0].map(h => String(h).toLowerCase().trim());
+      const iNome = header.findIndex(h => h.includes('nome') || h.includes('razão') || h.includes('razao') || h.includes('empresa'));
+      const iCnpj = header.findIndex(h => h.includes('cnpj'));
+      if (iNome < 0) { alert('Coluna "Nome" não encontrada.'); return; }
+      let adicionadas = 0, ignoradas = 0;
+      for (let r = 1; r < rows.length; r++) {
+        const row = rows[r];
+        const nome = row[iNome] ? String(row[iNome]).trim() : '';
+        const cnpj = iCnpj >= 0 && row[iCnpj] ? String(row[iCnpj]).trim() : '';
+        if (!nome) continue;
+        const jaExiste = _bancoEmpresas.find(e => e.nome === nome || (cnpj && e.cnpj === cnpj));
+        if (jaExiste) { ignoradas++; continue; }
+        await salvarEmpresaBanco({ nome, cnpj });
+        adicionadas++;
+      }
+      renderBancoEmpresas();
+      alert(adicionadas + ' empresa(s) adicionada(s) ao banco!' + (ignoradas ? '\n' + ignoradas + ' já existiam e foram ignoradas.' : ''));
+    } catch(err) {
+      alert('Erro ao importar: ' + err.message);
+    }
+  };
+  reader.readAsArrayBuffer(file);
+  input.value = '';
+}
+
+function addEmpresa() {
+  const nome = document.getElementById('e-nome') ? document.getElementById('e-nome').value.trim() : '';
+  const cnpj = document.getElementById('e-cnpj') ? document.getElementById('e-cnpj').value.trim() : '';
+  if (!nome) return;
+  adicionarEmpresaAoProcesso(nome, cnpj);
+}
+
+function removeEmpresa(id) {
+  if (!confirm('Remover empresa? Isso desvinculará ela de todos os itens.')) return;
+  empresas = empresas.filter(e => e.id !== id);
+  itens.forEach(i => { i.empIds = i.empIds.filter(x => x !== id); });
+  Object.keys(divisoes).forEach(cod => { if(divisoes[cod]) delete divisoes[cod][id]; });
+  renderEmpresas();
+  renderItens();
+  updateMetrics();
+  refreshVinculacaoSeAtiva();
+  salvarProcesso(false);
+}
+
+function refreshVinculacaoSeAtiva() {
+  if (document.getElementById('tab-vinculacao').classList.contains('active')) {
+    renderVinculacao();
+  }
+}
+
+function renderEmpresas() {
+  document.getElementById('count-emp').textContent = empresas.length;
+  const tbody = document.getElementById('tbody-emp');
+  if (!empresas.length) {
+    tbody.innerHTML = `<tr><td colspan="6" class="empty">Nenhuma empresa cadastrada.</td></tr>`;
+    return;
+  }
+  tbody.innerHTML = empresas.map((e, idx) => {
+    let total = 0;
+    itens.forEach(it => { if (divisoes[it.cod] && divisoes[it.cod][e.id]) total += divisoes[it.cod][e.id] * it.vunit; });
+    const itensCnt = itens.filter(i => i.empIds.includes(e.id)).length;
+    return `<tr>
+      <td style="color:var(--text3)">${idx + 1}</td>
+      <td style="font-weight:600">${e.nome}</td>
+      <td style="font-size:12px;color:var(--text2)">${e.cnpj || '—'}</td>
+      <td style="color:var(--text2)">${itensCnt} item(s)</td>
+      <td style="font-weight:600">${fmt(total)}</td>
+      <td><button class="btn danger sm" onclick="removeEmpresa('${e.id}')">&#10005;</button></td>
+    </tr>`;
+  }).join('');
+}
+
+// ---- DIVISÃO ----
+function renderDivisao() {
+  const c = document.getElementById('divisao-container');
+  if (!itens.length) { c.innerHTML = '<p class="empty">Nenhum item cadastrado ainda.</p>'; return; }
+  let html = '';
+  itens.forEach(it => {
+    if (!divisoes[it.cod]) divisoes[it.cod] = {};
+    const emps = it.empIds.map(id => empresas.find(e => e.id === id)).filter(Boolean);
+    const vtotal = it.qtde * it.vunit;
+    const totalDiv = emps.reduce((s, e) => s + (divisoes[it.cod][e.id] || 0), 0);
+    const diff = it.qtde - totalDiv;
+    const alertHtml = diff !== 0
+      ? `<div class="alert warn" style="margin-bottom:10px">&#9888; Faltam alocar <strong>${Math.abs(diff)}</strong> unidade(s) ${diff > 0 ? '' : '(excesso)'} — total do item: ${it.qtde}</div>`
+      : `<div class="alert ok" style="margin-bottom:10px">&#10003; Quantitativo completo (${it.qtde} ${it.und})</div>`;
+
+    const rowsHtml = emps.length ? emps.map(e => {
+      const qtdE = divisoes[it.cod][e.id] || 0;
+      const pct = it.qtde > 0 ? Math.min(100, qtdE / it.qtde * 100) : 0;
+      const vEmp = qtdE * it.vunit;
+      return `<div class="division-row">
+        <div class="emp-name-short" title="${e.nome}">${e.nome.split(' ').slice(0,4).join(' ')}</div>
+        <div class="progress-bar"><div class="progress-fill" style="width:${pct.toFixed(1)}%"></div></div>
+        <span style="font-size:11px;color:var(--text2);width:42px;text-align:right">${pct.toFixed(0)}%</span>
+        <input type="number" min="0" max="${it.qtde * 2}" step="1" value="${qtdE}" style="width:90px" onchange="setDivisao('${it.cod}','${e.id}',this.value)" oninput="setDivisao('${it.cod}','${e.id}',this.value)">
+        <div style="width:120px;font-size:12px;color:var(--text2);text-align:right">${fmt(vEmp)}</div>
+      </div>`;
+    }).join('') : '<p style="font-size:13px;color:var(--text3);padding:8px 0">Nenhuma empresa vinculada a este item. Edite o item na aba Itens.</p>';
+
+    html += `<div class="card">
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:10px">
+        <div><span style="font-weight:700;color:var(--info-text)">[${it.cod}]</span> <span style="font-weight:500">${it.desc}</span></div>
+        <div style="font-size:12px;color:var(--text2);text-align:right">Qtde: <strong>${it.qtde.toLocaleString('pt-BR')} ${it.und}</strong> &nbsp;|&nbsp; Total: <strong>${fmt(vtotal)}</strong></div>
+      </div>
+      ${alertHtml}
+      ${rowsHtml}
+    </div>`;
+  });
+  c.innerHTML = html;
+}
+
+function setDivisao(cod, empId, val) {
+  if (!divisoes[cod]) divisoes[cod] = {};
+  divisoes[cod][empId] = Math.max(0, parseFloat(val) || 0);
+  renderDivisao();
+  updateMetrics();
+  renderEmpresas();
+  salvarProcesso(false);
+}
+
+function dividirIgual() {
+  itens.forEach(it => {
+    if (!divisoes[it.cod]) divisoes[it.cod] = {};
+    const emps = it.empIds.map(id => empresas.find(e => e.id === id)).filter(Boolean);
+    if (!emps.length) return;
+    const base = Math.floor(it.qtde / emps.length);
+    const resto = it.qtde % emps.length;
+    emps.forEach((e, i) => { divisoes[it.cod][e.id] = base + (i < resto ? 1 : 0); });
+  });
+  renderDivisao();
+  updateMetrics();
+  renderEmpresas();
+  salvarProcesso(false);
+}
+
+function dividirProporcional() {
+  itens.forEach(it => {
+    if (!divisoes[it.cod]) divisoes[it.cod] = {};
+    const emps = it.empIds.map(id => empresas.find(e => e.id === id)).filter(Boolean);
+    if (!emps.length) return;
+    const pesos = emps.map(e => itens.filter(i => i.empIds.includes(e.id)).length);
+    const totalPeso = pesos.reduce((a, b) => a + b, 0);
+    let alocado = 0;
+    emps.forEach((e, i) => {
+      const q = i === emps.length - 1 ? it.qtde - alocado : Math.round(it.qtde * pesos[i] / totalPeso);
+      divisoes[it.cod][e.id] = q;
+      alocado += q;
+    });
+  });
+  renderDivisao();
+  updateMetrics();
+  renderEmpresas();
+  salvarProcesso(false);
+}
+
+function resetDivisao() {
+  if (!confirm('Resetar todas as divisões?')) return;
+  divisoes = {};
+  renderDivisao();
+  updateMetrics();
+  salvarProcesso(false);
+}
+
+// ---- EXPORT EXCEL ----
+function exportExcel() {
+  if (!empresas.length || !itens.length) { alert('Cadastre itens e empresas antes de exportar.'); return; }
+  const wb = XLSX.utils.book_new();
+
+  // Aba por empresa
+  empresas.forEach(emp => {
+    const rows = [['Item', 'Descrição', 'Und', 'Valor Unitário (R$)', 'Qtde Alocada', 'Valor Total (R$)']];
+    let totalEmp = 0;
+    itens.forEach(it => {
+      if (!it.empIds.includes(emp.id)) return;
+      const qtdAloc = (divisoes[it.cod] && divisoes[it.cod][emp.id]) || 0;
+      const vt = qtdAloc * it.vunit;
+      totalEmp += vt;
+      rows.push([it.cod, it.desc, it.und, it.vunit, qtdAloc, vt]);
+    });
+    rows.push([]);
+    rows.push(['', '', '', '', 'TOTAL GERAL', totalEmp]);
+    const ws = XLSX.utils.aoa_to_sheet(rows);
+    ws['!cols'] = [{wch:8},{wch:48},{wch:8},{wch:20},{wch:16},{wch:20}];
+    const sheetName = emp.nome.replace(/[\/\\\?\*\[\]:]/g,'').substring(0, 31);
+    XLSX.utils.book_append_sheet(wb, ws, sheetName);
+  });
+
+  // Aba resumo
+  const sumRows = [['Empresa','CNPJ','Qtde Itens','Valor Total Alocado (R$)']];
+  let grandTotal = 0;
+  empresas.forEach(emp => {
+    let total = 0;
+    let qtdeItens = 0;
+    itens.forEach(it => {
+      if (!it.empIds.includes(emp.id)) return;
+      qtdeItens++;
+      if (divisoes[it.cod] && divisoes[it.cod][emp.id]) total += divisoes[it.cod][emp.id] * it.vunit;
+    });
+    grandTotal += total;
+    sumRows.push([emp.nome, emp.cnpj, qtdeItens, total]);
+  });
+  sumRows.push([]);
+  sumRows.push(['TOTAL GERAL', '', '', grandTotal]);
+  const wsR = XLSX.utils.aoa_to_sheet(sumRows);
+  wsR['!cols'] = [{wch:50},{wch:22},{wch:14},{wch:26}];
+  XLSX.utils.book_append_sheet(wb, wsR, 'RESUMO');
+
+  XLSX.writeFile(wb, 'Credenciamento_Divisao_Quantitativos.xlsx');
+}
+
+// ---- IMPORT PDF ----
+async function handlePDF(input) {
+  const file = input.files[0];
+  if (!file) return;
+  const status = document.getElementById('pdf-status');
+  status.innerHTML = '<div class="alert info">&#128196; Lendo PDF, aguarde...</div>';
+  try {
+    const ab = await file.arrayBuffer();
+    const pdf = await pdfjsLib.getDocument({ data: ab }).promise;
+    let fullText = '';
+    for (let i = 1; i <= pdf.numPages; i++) {
+      const page = await pdf.getPage(i);
+      const tc = await page.getTextContent();
+      fullText += tc.items.map(t => t.str).join(' ') + '\n';
+    }
+    status.innerHTML = `<div class="alert ok">&#10003; PDF lido com sucesso (${pdf.numPages} página(s)). Processando...</div>`;
+    parseTextFromPDF(fullText);
+  } catch (e) {
+    status.innerHTML = `<div class="alert warn">&#10007; Erro ao ler PDF: ${e.message}. Tente colar o texto na caixa abaixo.</div>`;
+  }
+}
+
+async function parseTextFromPDF(text) {
+  const linhasBruto = text.split(/\n+/).map(l => l.trim()).filter(Boolean);
+  const cnpjRe = /(\d{2}\.\d{3}\.\d{3}\/\d{4}-\d{2})/;
+
+  // Junta linhas de cabeçalho de empresa quebradas em múltiplas linhas
+  const lines = [];
+  for (let i = 0; i < linhasBruto.length; i++) {
+    const l = linhasBruto[i];
+    if (/^(Endereço:|CEP:|UF:|Município:|Telefone:)/i.test(l) && lines.length > 0) {
+      lines[lines.length - 1] += ' ' + l;
+    } else {
+      lines.push(l);
+    }
+  }
+
+  let empAtual = null;
+  let novEmpresas = [];
+  let vinculacoes = {}; // cod -> [empIds]
+
+  lines.forEach(line => {
+    // Detectar linha de empresa (tem CNPJ e nome longo)
+    const cnpjMatch = line.match(cnpjRe);
+    if (cnpjMatch && line.length > 30) {
+      // Tenta extrair nome antes do | ou antes do CNPJ
+      const nomeMatch = line.match(/^([A-ZÁÉÍÓÚÃÕÂÊÎÔÛÀÈÌÒÙÇ\w][^\|]+?)\s*[\|,]\s*(?:Tipo:|Documento)/i)
+        || line.match(/^([A-ZÁÉÍÓÚÃÕÂÊÎÔÛÀÈÌÒÙÇ].+?)\s*\|/);
+      if (nomeMatch) {
+        const telMatch = line.match(/Telefone[:\s]+(\([\d ]+\)[\s\d\-]+)/i);
+        empAtual = {
+          nome: nomeMatch[1].trim(),
+          cnpj: cnpjMatch[1],
+          tel: telMatch ? telMatch[1].trim() : '',
+          _items: []
+        };
+        novEmpresas.push(empAtual);
+        return;
+      }
+    }
+
+    // Detectar linha de item: começa com código de 4 dígitos
+    const iMatch = line.match(/^(\d{4})\s+\S/);
+    if (iMatch && empAtual) {
+      const cod = iMatch[1];
+      const num = parseInt(cod);
+      // Filtra falsos positivos (anos, CEPs truncados, etc.)
+      if (num >= 1 && num <= 9999 && !line.match(/^\d{4}\s+\d/)) {
+        if (!empAtual._items.includes(cod)) {
+          empAtual._items.push(cod);
+        }
+      }
+    }
+  });
+
+  let addedEmp = 0, vinculados = 0, fracassados = [], naoEncontrados = [];
+
+  // Processa empresas
+  for (const ne of novEmpresas) {
+    // 1. Verifica se já está no processo
+    let empProcesso = empresas.find(e => e.cnpj === ne.cnpj && ne.cnpj);
+
+    // 2. Se não está, adiciona ao processo
+    if (!empProcesso) {
+      const id = 'e' + Date.now() + Math.random().toString(36).substr(2, 5);
+      empProcesso = { id, nome: ne.nome, cnpj: ne.cnpj };
+      empresas.push(empProcesso);
+      addedEmp++;
+
+      // Salva no banco global de empresas
+      salvarEmpresaBanco({ nome: ne.nome, cnpj: ne.cnpj, telefone: ne.tel }).catch(() => {});
+    }
+
+    ne._id = empProcesso.id;
+
+    // 3. Registra vinculações
+    ne._items.forEach(cod => {
+      if (!vinculacoes[cod]) vinculacoes[cod] = [];
+      if (!vinculacoes[cod].includes(ne._id)) vinculacoes[cod].push(ne._id);
+    });
+  }
+
+  // Aplica vinculações nos itens — mantém valores originais
+  Object.entries(vinculacoes).forEach(([cod, empIds]) => {
+    const item = itens.find(i => i.cod === cod);
+    if (item) {
+      empIds.forEach(id => { if (!item.empIds.includes(id)) { item.empIds.push(id); vinculados++; } });
+    } else {
+      naoEncontrados.push(cod);
+    }
+  });
+
+  // Marca itens sem nenhuma empresa como fracassado
+  itens.forEach(it => {
+    const temEmpresa = it.empIds && it.empIds.length > 0;
+    if (!temEmpresa) {
+      it.status = 'fracassado';
+      fracassados.push(it.cod);
+    } else {
+      if (it.status === 'fracassado') delete it.status;
+    }
+  });
+
+  // Monta relatório
+  const fracassadosHtml = fracassados.length
+    ? `<div style="margin-top:8px">&#9888; <strong>${fracassados.length}</strong> item(ns) <span style="color:var(--danger-text);font-weight:600">fracassado(s)</span> (sem empresa vinculada): ${fracassados.map(c => `<code>${c}</code>`).join(', ')}</div>`
+    : `<div style="margin-top:8px">&#10003; Nenhum item fracassado.</div>`;
+
+  const naoEncontradosHtml = naoEncontrados.length
+    ? `<div style="margin-top:6px;font-size:12px;color:var(--text3)">&#9432; Códigos do PDF não encontrados nos itens do processo: ${naoEncontrados.map(c => `<code>${c}</code>`).join(', ')}</div>`
+    : '';
+
+  document.getElementById('pdf-preview').innerHTML = `
+    <div class="card" style="border-color:var(--success-border)">
+      <div style="font-weight:600;color:var(--success-text);margin-bottom:10px">&#10003; Importação concluída</div>
+      <div style="font-size:13px;display:grid;gap:6px">
+        <div>&#127970; <strong>${addedEmp}</strong> empresa(s) adicionada(s) ao processo</div>
+        <div>&#9776; <strong>${vinculados}</strong> vinculação(ões) empresa↔item realizada(s)</div>
+        ${fracassadosHtml}
+        ${naoEncontradosHtml}
+      </div>
+      <div style="margin-top:12px;font-size:12px;color:var(--text2)">Verifique as abas <strong>Itens</strong>, <strong>Empresas</strong> e <strong>Vinculação</strong> para confirmar.</div>
+    </div>`;
+
+  renderEmpresas();
+  renderItens();
+  renderEmpChipsAdd();
+  updateMetrics();
+  await salvarProcesso(false);
+}
+
+function parsePastedText() {
+  const text = document.getElementById('txt-import').value;
+  if (!text.trim()) { alert('Cole o texto primeiro.'); return; }
+  document.getElementById('pdf-status').innerHTML = '';
+  parseTextFromPDF(text);
+}
+
+// ---- IMPORT CSV ----
+function parseCSV() {
+  const text = document.getElementById('csv-import').value.trim();
+  if (!text) { alert('Cole os dados CSV primeiro.'); return; }
+  const lines = text.split('\n').filter(l => l.trim());
+  let added = 0, errors = 0;
+  lines.forEach(line => {
+    const parts = line.split(';').map(p => p.trim());
+    if (parts.length < 5) { errors++; return; }
+    const cod = parts[0];
+    const desc = parts[1];
+    const qtde = parseFloat(parts[2].replace(',', '.')) || 0;
+    const und = parts[3] || 'UND';
+    const vunit = parseFloat(parts[4].replace(',', '.')) || 0;
+    if (!cod || !desc) { errors++; return; }
+    const existing = itens.findIndex(i => i.cod === cod);
+    if (existing >= 0) { itens[existing] = { ...itens[existing], desc, qtde, und, vunit }; }
+    else { itens.push({ cod, desc, qtde, und, vunit, empIds: [] }); added++; }
+  });
+  document.getElementById('csv-status').innerHTML = `<div class="alert ok">&#10003; ${added} item(ns) importado(s)${errors ? '. ' + errors + ' linha(s) ignorada(s).' : '.'}</div>`;
+  renderItens();
+  updateMetrics();
+  salvarProcesso(false);
+}
+
+// ---- IMPORT ITENS EXCEL ----
+function importItensExcel(input) {
+  const file = input.files[0];
+  if (!file) return;
+  const statusEl = document.getElementById('xlsx-itens-status');
+  const previewEl = document.getElementById('xlsx-itens-preview');
+  statusEl.innerHTML = '<div class="alert info">&#128196; Lendo planilha de itens...</div>';
+  previewEl.innerHTML = '';
+
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    try {
+      const wb = XLSX.read(e.target.result, { type: 'array' });
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      const rows = XLSX.utils.sheet_to_json(ws, { defval: '' });
+
+      if (!rows.length) {
+        statusEl.innerHTML = '<div class="alert warn">&#9888; Planilha vazia ou sem dados.</div>';
+        return;
+      }
+
+      // Normalizar cabeçalhos — mapeia para campos internos
+      const colMap = {};
+      Object.keys(rows[0]).forEach(k => {
+        const kn = k.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim().replace(/\s+/g,'');
+        if (['item','codigo','cod','code'].some(x => kn === x || kn.startsWith(x)))         colMap.cod  = k;
+        if (['descricao','descr','descricao','produto','servico','description'].some(x => kn.includes(x))) colMap.desc = k;
+        if (['quantidade','qtde','qtd','qty','quant'].some(x => kn.includes(x)))             colMap.qtde = k;
+        if (['unidade','und','unit','un'].some(x => kn === x || kn.startsWith(x)))          colMap.und  = k;
+        if (['valorunitario','vlunit','valorunit','precounit','preco','valor'].some(x => kn.includes(x))) colMap.vunit = k;
+      });
+
+      if (!colMap.desc && !colMap.cod) {
+        statusEl.innerHTML = '<div class="alert warn">&#9888; Não foi possível identificar as colunas. Verifique se o cabeçalho contém <strong>Item/Código</strong> e <strong>Descricao/Produto</strong>.</div>';
+        return;
+      }
+
+      let added = 0, updated = 0, skipped = 0;
+      const preview = [];
+
+      rows.forEach((row, idx) => {
+        // Código: usa coluna mapeada, ou gera sequencial formatado
+        let cod = colMap.cod ? String(row[colMap.cod] || '').trim() : '';
+        if (!cod) cod = String(idx + 1).padStart(4, '0');
+
+        const desc = colMap.desc ? String(row[colMap.desc] || '').trim().toUpperCase() : '';
+        if (!desc) { skipped++; return; }
+
+        const qtde  = colMap.qtde  ? parseFloat(String(row[colMap.qtde]).replace(/[^\d,\.]/g,'').replace(',','.')) || 0 : 0;
+        const und   = colMap.und   ? String(row[colMap.und] || 'UND').trim() : 'UND';
+        const vunit = colMap.vunit ? parseFloat(String(row[colMap.vunit]).replace(/[^\d,\.]/g,'').replace(',','.')) || 0 : 0;
+
+        const existing = itens.findIndex(i => i.cod === cod);
+        const item = { cod, desc, qtde, und: und || 'UND', vunit, empIds: existing >= 0 ? itens[existing].empIds : [] };
+
+        if (existing >= 0) { itens[existing] = { ...itens[existing], desc, qtde, und: item.und, vunit }; updated++; preview.push({...item, status:'atualizado'}); }
+        else               { itens.push(item); added++; preview.push({...item, status:'adicionado'}); }
+      });
+
+      statusEl.innerHTML = `<div class="alert ok">
+        &#10003; Importação concluída — <strong>${added}</strong> item(ns) adicionado(s), <strong>${updated}</strong> atualizado(s)${skipped ? ', <strong>' + skipped + '</strong> ignorado(s) (sem descrição)' : ''}.
+      </div>`;
+
+      // Prévia
+      if (preview.length) {
+        previewEl.innerHTML = `
+          <div style="font-size:11px;color:var(--text3);font-weight:500;text-transform:uppercase;letter-spacing:0.3px;margin-bottom:6px">
+            Prévia — ${preview.length > 10 ? 'primeiros 10 de ' + preview.length : preview.length} registro(s)
+          </div>
+          <table style="font-size:12px;width:100%">
+            <thead><tr><th>Cód.</th><th>Descrição</th><th>Qtde</th><th>Und</th><th>Vl. unit.</th><th>Status</th></tr></thead>
+            <tbody>${preview.slice(0,10).map(r => `<tr>
+              <td style="font-weight:600;color:var(--info-text)">${r.cod}</td>
+              <td>${r.desc}</td>
+              <td>${r.qtde.toLocaleString('pt-BR')}</td>
+              <td style="color:var(--text2)">${r.und}</td>
+              <td>${fmt(r.vunit)}</td>
+              <td><span style="font-size:11px;padding:2px 8px;border-radius:10px;
+                background:${r.status==='adicionado'?'var(--success-bg)':'var(--info-bg)'};
+                color:${r.status==='adicionado'?'var(--success-text)':'var(--info-text)'}">
+                ${r.status}</span></td>
+            </tr>`).join('')}
+            ${preview.length > 10 ? `<tr><td colspan="6" style="color:var(--text3);font-size:11px;text-align:center">... e mais ${preview.length-10} registro(s)</td></tr>` : ''}
+            </tbody>
+          </table>`;
+      }
+
+      renderItens();
+      updateMetrics();
+      salvarProcesso(false);
+      input.value = '';
+    } catch(err) {
+      statusEl.innerHTML = `<div class="alert warn">&#9888; Erro ao processar o arquivo: ${err.message}</div>`;
+    }
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+function baixarModeloItens() {
+  const wb = XLSX.utils.book_new();
+  const ws = XLSX.utils.aoa_to_sheet([
+    ['Item', 'Descricao', 'Quantidade', 'Unidade', 'Valor Unitario'],
+    ['0001', 'CONSULTA OFTALMOLOGICA', 1000, 'Cons', 95.00],
+    ['0002', 'ANGIOGRAFIA FLUORESCEINA', 100, 'UND', 400.00],
+    ['0003', 'BIOMETRIA (MONOCULAR)', 300, 'UND', 60.00],
+    ['0004', 'CAMPIMETRIA (MONOCULAR)', 300, 'UND', 60.00],
+    ['0005', 'CERATOMETRIA', 50, 'UND', 60.00],
+  ]);
+  ws['!cols'] = [{wch:8},{wch:55},{wch:14},{wch:12},{wch:18}];
+  XLSX.utils.book_append_sheet(wb, ws, 'Itens');
+  XLSX.writeFile(wb, 'modelo_itens.xlsx');
+}
+
+// ---- IMPORT EMPRESAS EXCEL ----
+function importEmpresasExcel(input) {
+  const file = input.files[0];
+  if (!file) return;
+  const statusEl = document.getElementById('xlsx-emp-status');
+  const previewEl = document.getElementById('xlsx-emp-preview');
+  statusEl.innerHTML = '<div class="alert info">&#128196; Lendo planilha...</div>';
+  previewEl.innerHTML = '';
+
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    try {
+      const wb = XLSX.read(e.target.result, { type: 'array' });
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      const rows = XLSX.utils.sheet_to_json(ws, { defval: '' });
+
+      if (!rows.length) {
+        statusEl.innerHTML = '<div class="alert warn">&#9888; Planilha vazia ou sem dados reconhecíveis.</div>';
+        return;
+      }
+
+      // Normalizar cabeçalhos
+      const colMap = {};
+      const keys = Object.keys(rows[0]);
+      keys.forEach(k => {
+        const kn = k.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim();
+        if (['razao_social','razaosocial','nome','empresa','razao social'].some(x => kn.includes(x.replace(' ',''))||kn===x)) colMap.nome = k;
+        if (['cnpj','documento','doc'].some(x => kn.includes(x))) colMap.cnpj = k;
+      });
+
+      if (!colMap.nome) {
+        statusEl.innerHTML = '<div class="alert warn">&#9888; Coluna de razão social não encontrada. Use o cabeçalho <strong>Nome</strong> ou <strong>razao_social</strong>.</div>';
+        return;
+      }
+
+      let added = 0, skipped = 0;
+      const preview = [];
+
+      rows.forEach(row => {
+        const nome = String(row[colMap.nome] || '').trim();
+        const cnpj = String(row[colMap.cnpj] || '').trim();
+
+        if (!nome) { skipped++; return; }
+
+        const jaExiste = empresas.find(e =>
+          (cnpj && e.cnpj === cnpj) || e.nome.toLowerCase() === nome.toLowerCase()
+        );
+
+        if (jaExiste) { skipped++; preview.push({nome, cnpj, status:'já existe'}); return; }
+
+        const id = 'e' + Date.now() + Math.random().toString(36).substr(2,5);
+        empresas.push({ id, nome, cnpj });
+        added++;
+        preview.push({nome, cnpj, status:'adicionada'});
+      });
+
+      statusEl.innerHTML = `<div class="alert ok">&#10003; <strong>${added}</strong> empresa(s) importada(s)${skipped ? '. <strong>' + skipped + '</strong> ignorada(s) (duplicadas ou sem nome).' : '.'}</div>`;
+
+      // Prévia
+      if (preview.length) {
+        previewEl.innerHTML = `<table style="font-size:12px;width:100%">
+          <thead><tr><th>Razão social</th><th>CNPJ</th><th>Status</th></tr></thead>
+          <tbody>${preview.slice(0,20).map(r => `<tr>
+            <td>${r.nome}</td>
+            <td style="color:var(--text2)">${r.cnpj||'—'}</td>
+            <td><span style="font-size:11px;padding:2px 8px;border-radius:10px;background:${r.status==='adicionada'?'var(--success-bg)':'var(--warn-bg)'};color:${r.status==='adicionada'?'var(--success-text)':'var(--warn-text)'}">${r.status}</span></td>
+          </tr>`).join('')}${preview.length>20?`<tr><td colspan="3" style="color:var(--text3);font-size:11px">... e mais ${preview.length-20} linha(s)</td></tr>`:''}</tbody>
+        </table>`;
+      }
+
+      renderEmpresas();
+      renderEmpChipsAdd();
+      updateMetrics();
+      salvarProcesso(false);
+      input.value = '';
+    } catch(err) {
+      statusEl.innerHTML = `<div class="alert warn">&#9888; Erro ao processar o arquivo: ${err.message}</div>`;
+    }
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+function baixarModeloEmpresas() {
+  const wb = XLSX.utils.book_new();
+  const ws = XLSX.utils.aoa_to_sheet([
+    ['Nome', 'CNPJ'],
+    ['CLINICA DE OLHOS EXEMPLO LTDA', '00.000.000/0001-00'],
+    ['FUNDAÇÃO SAÚDE VISUAL', '11.111.111/0001-11'],
+    ['OFTALMOCLINICA EXEMPLO SA', '22.222.222/0001-22'],
+    ['CLINICA EXEMPLO EIRELI', '33.333.333/0001-33'],
+  ]);
+  ws['!cols'] = [{wch:55},{wch:22}];
+  XLSX.utils.book_append_sheet(wb, ws, 'Empresas');
+  XLSX.writeFile(wb, 'modelo_empresas.xlsx');
+}
+
+// ---- RELATÓRIO ----
+let relMode = 'consolidado'; // 'consolidado' | 'empresa'
+
+function switchRelatorio(mode) {
+  relMode = mode;
+  document.getElementById('rel-btn-consolidado').classList.toggle('active', mode === 'consolidado');
+  document.getElementById('rel-btn-empresa').classList.toggle('active', mode === 'empresa');
+  const sel = document.getElementById('rel-emp-select');
+  sel.style.display = mode === 'empresa' ? 'block' : 'none';
+  renderRelatorio();
+}
+
+function renderRelatorio() {
+  // Populate empresa select
+  const sel = document.getElementById('rel-emp-select');
+  const prevVal = sel.value;
+  sel.innerHTML = '<option value="">Todas as empresas</option>' +
+    empresas.map(e => `<option value="${e.id}">${e.nome}</option>`).join('');
+  if (prevVal) sel.value = prevVal;
+
+  const container = document.getElementById('rel-content');
+  if (!itens.length || !empresas.length) {
+    container.innerHTML = `<div class="card"><div class="empty">Nenhum dado disponível. Cadastre itens e empresas primeiro.</div></div>`;
+    return;
+  }
+
+  if (relMode === 'consolidado') {
+    container.innerHTML = buildConsolidado();
+  } else {
+    const empId = sel.value;
+    const lista = empId ? empresas.filter(e => e.id === empId) : empresas;
+    container.innerHTML = lista.map(emp => buildEmpresaBlock(emp)).join('') + buildTotalGeral();
+  }
+}
+
+function buildConsolidado() {
+  const processo = processoAtivo;
+  let grandTotal = 0;
+  let grandAlocado = 0;
+
+  // Cabeçalho do relatório
+  let html = `<div class="card rel-section" id="rel-cabecalho">
+    <div style="text-align:center;padding:8px 0 16px">
+      <div style="font-size:18px;font-weight:700;margin-bottom:4px">RELATÓRIO CONSOLIDADO</div>
+      <div style="font-size:13px;color:var(--text2)">${processo ? processo.orgao || '' : ''}</div>
+      <div style="font-size:13px;font-weight:600">${processo ? processo.numero || '' : ''}</div>
+      ${processo && processo.objeto ? `<div style="font-size:12px;color:var(--text2);margin-top:2px">${processo.objeto}</div>` : ''}
+    </div>
+  </div>`;
+
+  // Tabela consolidada de itens
+  html += `<div class="card rel-section">
+    <div style="font-weight:700;font-size:14px;margin-bottom:14px;display:flex;align-items:center;gap:8px">
+      <span style="color:var(--accent)">&#9776;</span> Resumo geral de itens
+    </div>
+    <div class="scroll-x"><table class="rel-table">
+      <thead><tr>
+        <th>Cód.</th><th>Descrição</th><th>Und</th><th>Qtde total</th><th>Qtde alocada</th><th>% Alocado</th><th>Vl. unitário</th><th>Vl. total</th><th>Vl. alocado</th>
+      </tr></thead><tbody>`;
+
+  itens.forEach(it => {
+    const vtotal = it.qtde * it.vunit;
+    const qtdAloc = empresas.reduce((s, e) => s + ((divisoes[it.cod] && divisoes[it.cod][e.id]) || 0), 0);
+    const valAloc = qtdAloc * it.vunit;
+    const pct = it.qtde > 0 ? (qtdAloc / it.qtde * 100).toFixed(1) : '0.0';
+    const ok = qtdAloc >= it.qtde;
+    grandTotal += vtotal;
+    grandAlocado += valAloc;
+    html += `<tr>
+      <td style="font-weight:600;color:var(--info-text)">${it.cod}</td>
+      <td>${it.desc}</td>
+      <td style="color:var(--text2)">${it.und}</td>
+      <td>${it.qtde.toLocaleString('pt-BR')}</td>
+      <td style="font-weight:600;color:${ok ? 'var(--success-text)' : 'var(--warn-text)'}">${qtdAloc.toLocaleString('pt-BR')}</td>
+      <td><span style="font-size:11px;padding:2px 7px;border-radius:10px;background:${ok ? 'var(--success-bg)' : 'var(--warn-bg)'};color:${ok ? 'var(--success-text)' : 'var(--warn-text)'}">${pct}%</span></td>
+      <td>${fmt(it.vunit)}</td>
+      <td style="font-weight:600">${fmt(vtotal)}</td>
+      <td style="font-weight:600;color:var(--accent)">${fmt(valAloc)}</td>
+    </tr>`;
+  });
+
+  html += `</tbody><tfoot><tr class="grand-row">
+    <td colspan="7" style="font-weight:700">TOTAL GERAL</td>
+    <td style="font-weight:700">${fmt(grandTotal)}</td>
+    <td style="font-weight:700">${fmt(grandAlocado)}</td>
+  </tr></tfoot></table></div></div>`;
+
+  // Tabela de resumo por empresa
+  html += `<div class="card rel-section">
+    <div style="font-weight:700;font-size:14px;margin-bottom:14px;display:flex;align-items:center;gap:8px">
+      <span style="color:var(--accent)">&#127970;</span> Resumo por empresa
+    </div>
+    <div class="scroll-x"><table class="rel-table">
+      <thead><tr><th>#</th><th>Empresa</th><th>CNPJ</th><th>Itens vinculados</th><th>Itens alocados</th><th>Valor alocado</th><th>% do total</th></tr></thead><tbody>`;
+
+  let rankTotal = 0;
+  const empDados = empresas.map(emp => {
+    const iVinc = itens.filter(i => i.empIds.includes(emp.id)).length;
+    let valEmp = 0; let iAloc = 0;
+    itens.forEach(it => {
+      const q = (divisoes[it.cod] && divisoes[it.cod][emp.id]) || 0;
+      if (q > 0) { valEmp += q * it.vunit; iAloc++; }
+    });
+    rankTotal += valEmp;
+    return { emp, iVinc, iAloc, valEmp };
+  }).sort((a, b) => b.valEmp - a.valEmp);
+
+  empDados.forEach(({ emp, iVinc, iAloc, valEmp }, idx) => {
+    const pct = rankTotal > 0 ? (valEmp / rankTotal * 100).toFixed(1) : '0.0';
+    html += `<tr>
+      <td style="color:var(--text3)">${idx + 1}</td>
+      <td style="font-weight:600">${emp.nome}</td>
+      <td style="font-size:12px;color:var(--text2)">${emp.cnpj || '—'}</td>
+      <td style="color:var(--text2)">${iVinc}</td>
+      <td style="color:var(--text2)">${iAloc}</td>
+      <td style="font-weight:700;color:var(--accent)">${fmt(valEmp)}</td>
+      <td><div style="display:flex;align-items:center;gap:6px">
+        <div style="width:60px;height:6px;background:var(--bg3);border-radius:3px;overflow:hidden">
+          <div style="width:${pct}%;height:100%;background:var(--accent);border-radius:3px"></div>
+        </div>
+        <span style="font-size:12px">${pct}%</span>
+      </div></td>
+    </tr>`;
+  });
+
+  html += `</tbody><tfoot><tr class="grand-row">
+    <td colspan="5" style="font-weight:700">TOTAL GERAL</td>
+    <td style="font-weight:700">${fmt(rankTotal)}</td>
+    <td style="font-weight:700">100%</td>
+  </tr></tfoot></table></div></div>`;
+
+  return html;
+}
+
+function buildEmpresaBlock(emp) {
+  let totalEmp = 0;
+  let rows = '';
+  let hasItems = false;
+
+  itens.forEach(it => {
+    if (!it.empIds.includes(emp.id)) return;
+    const qtdAloc = (divisoes[it.cod] && divisoes[it.cod][emp.id]) || 0;
+    const vtotal = qtdAloc * it.vunit;
+    totalEmp += vtotal;
+    hasItems = true;
+    const ok = qtdAloc >= it.qtde;
+    rows += `<tr>
+      <td style="font-weight:600;color:var(--info-text)">${it.cod}</td>
+      <td>${it.desc}</td>
+      <td style="color:var(--text2)">${it.und}</td>
+      <td>${it.qtde.toLocaleString('pt-BR')}</td>
+      <td style="font-weight:600;color:${ok?'var(--success-text)':'var(--warn-text)'}">${qtdAloc.toLocaleString('pt-BR')}</td>
+      <td>${fmt(it.vunit)}</td>
+      <td style="font-weight:700;color:var(--accent)">${fmt(vtotal)}</td>
+    </tr>`;
+  });
+
+  if (!hasItems) rows = `<tr><td colspan="7" class="empty">Nenhum item vinculado a esta empresa.</td></tr>`;
+
+  return `<div class="card rel-section">
+    <div class="rel-empresa-header">
+      <div>
+        <div style="font-weight:700;font-size:14px">${emp.nome}</div>
+        <div style="font-size:12px;color:var(--text2);margin-top:2px">${emp.cnpj ? 'CNPJ: ' + emp.cnpj : ''}</div>
+      </div>
+      <div style="text-align:right">
+        <div style="font-size:11px;color:var(--text2);text-transform:uppercase;letter-spacing:0.3px">Total alocado</div>
+        <div style="font-size:20px;font-weight:700;color:var(--accent)">${fmt(totalEmp)}</div>
+      </div>
+    </div>
+    <div class="scroll-x"><table class="rel-table">
+      <thead><tr><th>Cód.</th><th>Descrição</th><th>Und</th><th>Qtde total</th><th>Qtde alocada</th><th>Vl. unitário</th><th>Vl. total alocado</th></tr></thead>
+      <tbody>${rows}</tbody>
+      <tfoot><tr class="total-row">
+        <td colspan="6" style="font-weight:700">SUBTOTAL — ${emp.nome.split(' ').slice(0,3).join(' ')}</td>
+        <td style="font-weight:700;color:var(--accent)">${fmt(totalEmp)}</td>
+      </tr></tfoot>
+    </table></div>
+  </div>`;
+}
+
+function buildTotalGeral() {
+  let grand = 0;
+  empresas.forEach(emp => {
+    itens.forEach(it => {
+      const q = (divisoes[it.cod] && divisoes[it.cod][emp.id]) || 0;
+      grand += q * it.vunit;
+    });
+  });
+  return `<div class="card" style="border-color:var(--info-border)">
+    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
+      <div style="font-weight:700;font-size:15px;color:var(--info-text)">&#128200; TOTAL GERAL ALOCADO — TODAS AS EMPRESAS</div>
+      <div style="font-size:22px;font-weight:700;color:var(--info-text)">${fmt(grand)}</div>
+    </div>
+  </div>`;
+}
+
+function imprimirRelatorio() {
+  renderRelatorio();
+  // Garante que a aba relatório está visível para impressão
+  document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+  document.getElementById('tab-relatorio').classList.add('active');
+  setTimeout(() => window.print(), 150);
+}
+
+function exportarRelatorioPDF() {
+  // Usa a impressão nativa do browser com destino PDF
+  renderRelatorio();
+  document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+  document.getElementById('tab-relatorio').classList.add('active');
+  const instrucoes = document.createElement('div');
+  instrucoes.id = 'pdf-instrucoes';
+  instrucoes.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:var(--bg);border:1.5px solid var(--border2);border-radius:12px;padding:24px 28px;z-index:9999;text-align:center;box-shadow:0 8px 32px rgba(0,0,0,0.22);max-width:340px';
+  instrucoes.innerHTML = `
+    <div style="font-size:32px;margin-bottom:10px">&#128196;</div>
+    <div style="font-weight:700;font-size:15px;margin-bottom:8px">Exportar como PDF</div>
+    <div style="font-size:13px;color:var(--text2);margin-bottom:16px">Na janela de impressão que irá abrir, selecione <strong>"Salvar como PDF"</strong> como destino.</div>
+    <button onclick="document.getElementById('pdf-instrucoes').remove();window.print()" style="background:var(--text);color:var(--bg);border:none;border-radius:8px;padding:9px 22px;font-size:13px;cursor:pointer;font-family:inherit;font-weight:600">Continuar</button>
+    <button onclick="document.getElementById('pdf-instrucoes').remove()" style="background:none;border:none;color:var(--text2);font-size:13px;cursor:pointer;margin-left:10px;font-family:inherit">Cancelar</button>
+  `;
+  document.body.appendChild(instrucoes);
+}
+
+function exportarRelatorioExcel() {
+  if (!itens.length || !empresas.length) { alert('Sem dados para exportar.'); return; }
+  const wb = XLSX.utils.book_new();
+  const proc = processoAtivo;
+
+  // Aba por empresa
+  empresas.forEach(emp => {
+    const rows = [];
+    if (proc) {
+      rows.push([proc.orgao || '', '', '', '', '', '', '']);
+      rows.push([proc.numero || '', '', '', '', '', '', '']);
+      rows.push(['']);
+    }
+    rows.push(['RELATÓRIO POR EMPRESA', '', '', '', '', '', '']);
+    rows.push([emp.nome, '', '', '', '', '', '']);
+    rows.push(['CNPJ: ' + (emp.cnpj || '—'), '', '', '', '', '', '']);
+    rows.push(['']);
+    rows.push(['Código', 'Descrição', 'Und', 'Qtde total', 'Qtde alocada', 'Vl. unitário (R$)', 'Vl. total alocado (R$)']);
+
+    let total = 0;
+    itens.forEach(it => {
+      if (!it.empIds.includes(emp.id)) return;
+      const q = (divisoes[it.cod] && divisoes[it.cod][emp.id]) || 0;
+      const vt = q * it.vunit;
+      total += vt;
+      rows.push([it.cod, it.desc, it.und, it.qtde, q, it.vunit, vt]);
+    });
+    rows.push(['']);
+    rows.push(['', '', '', '', '', 'TOTAL', total]);
+
+    const ws = XLSX.utils.aoa_to_sheet(rows);
+    ws['!cols'] = [{wch:8},{wch:48},{wch:8},{wch:12},{wch:14},{wch:20},{wch:22}];
+    XLSX.utils.book_append_sheet(wb, ws, emp.nome.replace(/[\/\\\?\*\[\]:]/g,'').substring(0,31));
+  });
+
+  // Aba consolidada - itens
+  const consRows = [
+    proc ? [proc.orgao || ''] : [],
+    proc ? [proc.numero || ''] : [],
+    [''],
+    ['RELATÓRIO CONSOLIDADO — TODOS OS ITENS'],
+    [''],
+    ['Código','Descrição','Und','Qtde total','Qtde alocada','% Alocado','Vl. unitário (R$)','Vl. total (R$)','Vl. alocado (R$)']
+  ].filter(r => r.length > 0);
+
+  let gTotal = 0, gAloc = 0;
+  itens.forEach(it => {
+    const qa = empresas.reduce((s,e) => s + ((divisoes[it.cod]&&divisoes[it.cod][e.id])||0), 0);
+    const vt = it.qtde * it.vunit;
+    const va = qa * it.vunit;
+    gTotal += vt; gAloc += va;
+    const pct = it.qtde > 0 ? (qa/it.qtde*100).toFixed(1)+'%' : '0.0%';
+    consRows.push([it.cod, it.desc, it.und, it.qtde, qa, pct, it.vunit, vt, va]);
+  });
+  consRows.push(['']);
+  consRows.push(['','','','','','','','TOTAL GERAL', gTotal]);
+  consRows.push(['','','','','','','','TOTAL ALOCADO', gAloc]);
+
+  const wsCons = XLSX.utils.aoa_to_sheet(consRows);
+  wsCons['!cols'] = [{wch:8},{wch:48},{wch:8},{wch:12},{wch:14},{wch:10},{wch:20},{wch:20},{wch:22}];
+  XLSX.utils.book_append_sheet(wb, wsCons, 'CONSOLIDADO');
+
+  // Aba resumo por empresa
+  const resRows = [
+    ['RESUMO POR EMPRESA'],
+    [''],
+    ['#','Empresa','CNPJ','Itens vinculados','Valor alocado (R$)','% do total']
+  ];
+  let rTotal = 0;
+  const empVals = empresas.map(emp => {
+    let v = 0;
+    itens.forEach(it => { v += ((divisoes[it.cod]&&divisoes[it.cod][emp.id])||0) * it.vunit; });
+    rTotal += v;
+    return { emp, v };
+  }).sort((a,b) => b.v - a.v);
+
+  empVals.forEach(({emp, v}, i) => {
+    const iVinc = itens.filter(it => it.empIds.includes(emp.id)).length;
+    const pct = rTotal > 0 ? (v/rTotal*100).toFixed(1)+'%' : '0.0%';
+    resRows.push([i+1, emp.nome, emp.cnpj||'', iVinc, v, pct]);
+  });
+  resRows.push(['','','','','TOTAL', rTotal]);
+
+  const wsRes = XLSX.utils.aoa_to_sheet(resRows);
+  wsRes['!cols'] = [{wch:4},{wch:50},{wch:22},{wch:16},{wch:22},{wch:10}];
+  XLSX.utils.book_append_sheet(wb, wsRes, 'RESUMO');
+
+  const nomeArq = (proc ? proc.numero.replace(/[\/\\\?\*\[\]:]/g,'_') : 'Relatorio');
+  XLSX.writeFile(wb, nomeArq + '.xlsx');
+}
+
+// ---- DRAG & DROP ----
+const dz = document.getElementById('drop-zone');
+dz.addEventListener('dragover', e => { e.preventDefault(); dz.classList.add('drag'); });
+dz.addEventListener('dragleave', () => dz.classList.remove('drag'));
+dz.addEventListener('drop', e => {
+  e.preventDefault();
+  dz.classList.remove('drag');
+  const file = e.dataTransfer.files[0];
+  if (file && file.type === 'application/pdf') {
+    const fakeInput = { files: [file] };
+    handlePDF(fakeInput);
+  }
+});
+
+// Fechar modal clicando fora — rastreia mousedown para não fechar ao arrastar texto
+(function() {
+  function bindModalDismiss(overlayId, closeFn) {
+    const overlay = document.getElementById(overlayId);
+    if (!overlay) return;
+    let mousedownOnOverlay = false;
+    overlay.addEventListener('mousedown', function(e) {
+      mousedownOnOverlay = (e.target === overlay);
+    });
+    overlay.addEventListener('mouseup', function(e) {
+      if (mousedownOnOverlay && e.target === overlay) closeFn();
+      mousedownOnOverlay = false;
+    });
+  }
+  bindModalDismiss('modal-processo', fecharModal);
+  bindModalDismiss('modal-nova-empresa', fecharModalEmpresa);
+  bindModalDismiss('modal-banco-empresas', () => document.getElementById('modal-banco-empresas').classList.add('hidden'));
+})();
+
+// Salvar com Ctrl+S
+document.addEventListener('keydown', e => {
+  if ((e.ctrlKey || e.metaKey) && e.key === 's') { e.preventDefault(); salvarProcesso(true); }
+});
+
+// Login com Enter
+document.addEventListener('keydown', e => {
+  if (e.key === 'Enter' && !document.getElementById('login-screen').classList.contains('hidden')) {
+    fazerLogin();
+  }
+});
+
+// Filtro de empresa no relatório
+document.getElementById('rel-emp-select').addEventListener('change', renderRelatorio);
+
+// ---- INIT ----
+(async () => {
+  // Verifica se é um redirect de recuperação de senha
+  const hash = window.location.hash;
+  if (hash && hash.includes('type=recovery')) {
+    const params = new URLSearchParams(hash.replace('#', '?'));
+    const accessToken = params.get('access_token');
+    if (accessToken) {
+      const novaSenha = prompt('Digite sua nova senha (mínimo 6 caracteres):');
+      if (novaSenha && novaSenha.length >= 6) {
+        await supa.auth.setSession({ access_token: accessToken, refresh_token: params.get('refresh_token') });
+        const { error } = await supa.auth.updateUser({ password: novaSenha });
+        if (error) { alert('Erro ao redefinir senha: ' + error.message); }
+        else { alert('Senha redefinida com sucesso! Faça login com a nova senha.'); }
+        window.location.hash = '';
+      } else if (novaSenha !== null) {
+        alert('Senha muito curta. Tente novamente pelo link do e-mail.');
+      }
+      return;
+    }
+  }
+
+  const { data: { session } } = await supa.auth.getSession();
+  if (session && session.user) {
+    _usuarioAtual = session.user;
+    await iniciarSessao();
+  }
+})();
+</script>
+</body>
+</html>
