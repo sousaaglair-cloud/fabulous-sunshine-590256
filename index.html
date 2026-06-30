@@ -351,13 +351,13 @@
   <div class="header-actions">
     <div class="user-info" id="header-user-info" style="display:none">
       <span style="font-size:11px;background:var(--bg2);padding:4px 10px;border-radius:20px;border:1px solid var(--border)" id="header-user-email"></span>
+      <button class="btn sm" onclick="fazerLogout()" title="Sair">⏻ Sair</button>
       <div class="header-divider"></div>
     </div>
     <button class="btn sm" id="btn-processos" onclick="goHome()">🏠 Processos</button>
     <button class="btn sm" onclick="showTabDirect('importar')">⬆ Importar PDF</button>
     <button class="btn sm" onclick="salvarProcesso(true)">💾 Salvar</button>
     <button class="btn success sm" onclick="exportExcel()">⬇ Excel</button>
-    <button class="btn sm danger" onclick="fazerLogout()" title="Sair">⏻</button>
   </div>
 </header>
 <div id="proc-banner" class="hidden">
@@ -1152,22 +1152,14 @@ function renderListaProcessos() {
         <div class="proc-icon">📁</div>
         <div class="proc-info">
           <div class="proc-nome">${p.numero}</div>
-          ${(p.orgao||p.municipio) ? `<div class="proc-meta" style="display:flex;align-items:center;gap:5px;margin-top:3px">
-            <span style="font-size:10px">🏛️</span>
-            <span>${[p.orgao,p.municipio].filter(Boolean).join(' · ')}</span>
+          ${(p.orgao||p.municipio) ? `<div class="proc-meta" style="margin-top:3px">
+            ${[p.orgao,p.municipio].filter(Boolean).join(' · ')}
           </div>` : ''}
-          ${p.objeto ? `<div style="font-size:12px;color:var(--text2);margin-top:3px;display:flex;align-items:flex-start;gap:5px">
-            <span style="font-size:10px;margin-top:2px">📋</span>
-            <span style="flex:1;overflow:hidden;display:-webkit-box;-webkit-line-clamp:1;-webkit-box-orient:vertical;">${p.objeto}</span>
-          </div>` : ''}
+          ${p.objeto ? `<div style="font-size:12px;color:var(--text2);margin-top:3px;overflow:hidden;display:-webkit-box;-webkit-line-clamp:1;-webkit-box-orient:vertical;">${p.objeto}</div>` : ''}
           <div style="margin-top:8px;display:flex;align-items:center;gap:8px;flex-wrap:wrap">
             ${statusLabel(p.status)}
-            <span style="font-size:11px;color:var(--text3)">${nItens} itens</span>
-            <span style="font-size:11px;color:var(--text3)">•</span>
-            <span style="font-size:11px;color:var(--text3)">${nEmp} empresas</span>
-            <span style="font-size:11px;color:var(--text3)">•</span>
-            <span style="font-size:11px;font-weight:600;color:var(--accent)">${fmt(vTotal)}</span>
-            <span style="font-size:11px;color:var(--text3);margin-left:auto">Atualizado ${atualizado}</span>
+            <span style="font-size:11px;color:var(--text3)">${nItens} itens · ${nEmp} empresas · <strong style="color:var(--text2)">${fmt(vTotal)}</strong></span>
+            <span style="font-size:11px;color:var(--text3);margin-left:auto">${atualizado}</span>
           </div>
         </div>
         <div class="proc-actions" onclick="event.stopPropagation()">
@@ -1192,70 +1184,48 @@ function renderListaProcessos() {
   }).join('');
 
   container.innerHTML = `
-    <!-- MÉTRICAS -->
-    <div class="metrics" style="grid-template-columns:repeat(auto-fit,minmax(150px,1fr))">
-      <div class="metric">
-        <div class="metric-accent"></div>
-        <div class="metric-label">Processos</div>
-        <div class="metric-value">${totalProcessos}</div>
-        <div class="metric-sub">${emAndamento} em andamento</div>
+    <!-- RESUMO -->
+    <div style="display:flex;align-items:center;gap:24px;margin-bottom:20px;flex-wrap:wrap">
+      <div>
+        <div style="font-size:32px;font-weight:700;letter-spacing:-1px;line-height:1">${totalProcessos}</div>
+        <div style="font-size:12px;color:var(--text2);margin-top:2px">processo(s) no total</div>
       </div>
-      <div class="metric">
-        <div class="metric-accent blue"></div>
-        <div class="metric-label">Empresas únicas</div>
-        <div class="metric-value">${totalEmpresas}</div>
-        <div class="metric-sub">no banco de dados</div>
+      <div class="header-divider" style="height:36px"></div>
+      <div>
+        <div style="font-size:20px;font-weight:600;color:var(--accent)">${emAndamento}</div>
+        <div style="font-size:11px;color:var(--text3)">em andamento</div>
       </div>
-      <div class="metric">
-        <div class="metric-accent purple"></div>
-        <div class="metric-label">Total de itens</div>
-        <div class="metric-value">${totalItens}</div>
-        <div class="metric-sub">em todos os processos</div>
+      <div>
+        <div style="font-size:20px;font-weight:600;color:var(--text2)">${concluidos}</div>
+        <div style="font-size:11px;color:var(--text3)">concluídos</div>
       </div>
-      <div class="metric">
-        <div class="metric-accent orange"></div>
-        <div class="metric-label">Valor total</div>
-        <div class="metric-value sm">${fmt(totalValor)}</div>
-        <div class="metric-sub">${concluidos} processo(s) concluído(s)</div>
-      </div>
-      ${semVinc > 0 ? `<div class="metric" style="border-color:var(--warn-border)">
-        <div class="metric-accent red"></div>
-        <div class="metric-label" style="color:var(--warn-text)">⚠ Sem vínculo</div>
-        <div class="metric-value" style="color:var(--warn-text)">${semVinc}</div>
-        <div class="metric-sub">itens sem empresa</div>
-      </div>` : ''}
-      <div class="metric" style="cursor:pointer;border-style:dashed" onclick="exportarBackup()">
-        <div class="metric-label">Backup</div>
-        <div style="font-size:22px;margin:6px 0">💾</div>
-        <div style="font-size:12px;color:var(--accent);font-weight:600">Exportar JSON</div>
-      </div>
+      <button class="btn sm" style="margin-left:auto" onclick="exportarBackup()">💾 Backup</button>
     </div>
 
+    ${totalProcessos > 1 ? `
     <!-- GRÁFICOS -->
     <div class="dash-grid" id="dash-charts-row">
       <div class="chart-card">
         <div class="chart-title">Distribuição por status</div>
-        <div class="chart-wrap" style="height:200px;display:flex;align-items:center;justify-content:center">
+        <div class="chart-wrap" style="height:180px;display:flex;align-items:center;justify-content:center">
           <canvas id="chart-status"></canvas>
         </div>
       </div>
       <div class="chart-card">
-        <div class="chart-title">Top processos por valor (R$)</div>
-        <div class="chart-wrap" style="height:200px">
+        <div class="chart-title">Top processos por valor</div>
+        <div class="chart-wrap" style="height:180px">
           <canvas id="chart-valor"></canvas>
         </div>
       </div>
     </div>
+    ` : ''}
 
     <!-- LISTA -->
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
-      <div style="font-size:13px;font-weight:700;color:var(--text)">Processos</div>
-    </div>
     ${gruposHtml}
   `;
 
   // Renderizar gráficos após DOM atualizado
-  requestAnimationFrame(() => renderDashCharts(lista));
+  if (totalProcessos > 1) requestAnimationFrame(() => renderDashCharts(lista));
 }
 
 let _dashCharts = {};
