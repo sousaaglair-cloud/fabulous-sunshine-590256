@@ -7,145 +7,283 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
   :root {
     --bg: #ffffff;
-    --bg2: #f7f7f5;
-    --bg3: #f0efe9;
-    --text: #1a1a1a;
-    --text2: #6b6b6b;
-    --text3: #9b9b9b;
-    --border: rgba(0,0,0,0.12);
-    --border2: rgba(0,0,0,0.22);
-    --info-bg: #e6f1fb;
-    --info-text: #185fa5;
-    --info-border: #b5d4f4;
-    --success-bg: #eaf3de;
-    --success-text: #3b6d11;
-    --success-border: #c0dd97;
-    --warn-bg: #faeeda;
-    --warn-text: #854f0b;
-    --warn-border: #fac775;
-    --danger-text: #a32d2d;
-    --danger-border: #f7c1c1;
-    --accent: #1d9e75;
+    --bg2: #f8f8f7;
+    --bg3: #f0f0ee;
+    --text: #18181b;
+    --text2: #71717a;
+    --text3: #a1a1aa;
+    --border: rgba(0,0,0,0.08);
+    --border2: rgba(0,0,0,0.16);
+    --info-bg: #eff6ff;
+    --info-text: #1d4ed8;
+    --info-border: #bfdbfe;
+    --success-bg: #f0fdf4;
+    --success-text: #166534;
+    --success-border: #bbf7d0;
+    --warn-bg: #fffbeb;
+    --warn-text: #92400e;
+    --warn-border: #fde68a;
+    --danger-bg: #fef2f2;
+    --danger-text: #991b1b;
+    --danger-border: #fecaca;
+    --accent: #059669;
+    --accent2: #047857;
+    --shadow-sm: 0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
+    --shadow: 0 4px 6px rgba(0,0,0,0.05), 0 2px 4px rgba(0,0,0,0.04);
+    --shadow-lg: 0 10px 25px rgba(0,0,0,0.08), 0 4px 10px rgba(0,0,0,0.05);
     --radius: 8px;
     --radius-lg: 12px;
+    --radius-xl: 16px;
   }
   @media (prefers-color-scheme: dark) {
     :root {
-      --bg: #1e1e1c;
-      --bg2: #262624;
-      --bg3: #2e2e2b;
-      --text: #f0efe9;
-      --text2: #a0a09a;
-      --text3: #6b6b67;
-      --border: rgba(255,255,255,0.12);
-      --border2: rgba(255,255,255,0.22);
-      --info-bg: #0c3555;
-      --info-text: #85b7eb;
-      --info-border: #185fa5;
-      --success-bg: #173404;
-      --success-text: #97c459;
-      --success-border: #3b6d11;
-      --warn-bg: #412402;
-      --warn-text: #ef9f27;
-      --warn-border: #854f0b;
-      --danger-text: #f09595;
-      --danger-border: #791f1f;
+      --bg: #18181b;
+      --bg2: #27272a;
+      --bg3: #1f1f22;
+      --text: #fafafa;
+      --text2: #a1a1aa;
+      --text3: #52525b;
+      --border: rgba(255,255,255,0.08);
+      --border2: rgba(255,255,255,0.16);
+      --info-bg: #1e3a5f;
+      --info-text: #93c5fd;
+      --info-border: #1d4ed8;
+      --success-bg: #14532d;
+      --success-text: #86efac;
+      --success-border: #166534;
+      --warn-bg: #451a03;
+      --warn-text: #fcd34d;
+      --warn-border: #92400e;
+      --danger-bg: #450a0a;
+      --danger-text: #fca5a5;
+      --danger-border: #991b1b;
+      --accent: #10b981;
+      --accent2: #059669;
     }
   }
   * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; font-size: 14px; color: var(--text); background: var(--bg3); min-height: 100vh; }
-  header { background: var(--bg); border-bottom: 0.5px solid var(--border); padding: 14px 24px; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 100; }
-  .logo { font-size: 16px; font-weight: 600; letter-spacing: -0.3px; }
+  body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; font-size: 14px; color: var(--text); background: var(--bg3); min-height: 100vh; }
+
+  /* ── HEADER ── */
+  header {
+    background: var(--bg);
+    border-bottom: 1px solid var(--border);
+    padding: 0 24px;
+    height: 56px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    box-shadow: var(--shadow-sm);
+  }
+  .logo { font-size: 17px; font-weight: 700; letter-spacing: -0.5px; cursor: pointer; display: flex; align-items: center; gap: 8px; }
+  .logo-icon { width: 30px; height: 30px; background: var(--accent); border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 15px; }
   .logo span { color: var(--accent); }
-  .header-actions { display: flex; gap: 8px; }
-  .main { max-width: 1100px; margin: 0 auto; padding: 24px 16px; }
-  .metrics { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; margin-bottom: 24px; }
-  .metric { background: var(--bg); border: 0.5px solid var(--border); border-radius: var(--radius-lg); padding: 14px 16px; }
-  .metric-label { font-size: 11px; color: var(--text2); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; }
-  .metric-value { font-size: 22px; font-weight: 600; }
-  .metric-value.sm { font-size: 16px; }
-  .card { background: var(--bg); border: 0.5px solid var(--border); border-radius: var(--radius-lg); padding: 16px 20px; margin-bottom: 16px; }
-  .card-title { font-size: 14px; font-weight: 600; margin-bottom: 14px; }
-  .tabs { display: flex; gap: 2px; border-bottom: 0.5px solid var(--border); margin-bottom: 20px; }
-  .tab { padding: 9px 18px; cursor: pointer; border: none; background: none; font-size: 13px; color: var(--text2); border-bottom: 2px solid transparent; font-family: inherit; transition: color 0.15s; }
-  .tab.active { color: var(--text); border-bottom-color: var(--accent); font-weight: 600; }
-  .tab:hover:not(.active) { color: var(--text); }
+  .header-actions { display: flex; gap: 6px; align-items: center; }
+  .header-divider { width: 1px; height: 20px; background: var(--border2); margin: 0 4px; }
+
+  /* ── PROC BANNER ── */
+  #proc-banner { background: linear-gradient(135deg, var(--accent) 0%, var(--accent2) 100%); border-bottom: none; padding: 8px 24px; display: flex; align-items: center; gap: 10px; font-size: 13px; color: #fff; }
+  #proc-banner.hidden { display: none; }
+  .autosave-dot { width: 7px; height: 7px; border-radius: 50%; background: rgba(255,255,255,0.7); display: inline-block; margin-right: 4px; animation: pulse 2s infinite; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+
+  /* ── MAIN ── */
+  .main { max-width: 1160px; margin: 0 auto; padding: 28px 20px; }
+
+  /* ── CARDS ── */
+  .card { background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 20px 24px; margin-bottom: 16px; box-shadow: var(--shadow-sm); }
+  .card-title { font-size: 14px; font-weight: 600; margin-bottom: 16px; display: flex; align-items: center; gap: 8px; }
+  .card-title-icon { width: 28px; height: 28px; border-radius: 6px; background: var(--success-bg); display: flex; align-items: center; justify-content: center; font-size: 14px; }
+
+  /* ── METRICS ── */
+  .metrics { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 14px; margin-bottom: 24px; }
+  .metric { background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 18px 20px; box-shadow: var(--shadow-sm); position: relative; overflow: hidden; transition: box-shadow 0.2s; }
+  .metric:hover { box-shadow: var(--shadow); }
+  .metric-accent { position: absolute; top: 0; left: 0; right: 0; height: 3px; border-radius: var(--radius-lg) var(--radius-lg) 0 0; background: var(--accent); }
+  .metric-accent.blue { background: #3b82f6; }
+  .metric-accent.purple { background: #8b5cf6; }
+  .metric-accent.orange { background: #f59e0b; }
+  .metric-accent.red { background: #ef4444; }
+  .metric-label { font-size: 11px; color: var(--text2); text-transform: uppercase; letter-spacing: 0.6px; font-weight: 600; margin-bottom: 8px; }
+  .metric-value { font-size: 24px; font-weight: 700; letter-spacing: -0.5px; }
+  .metric-value.sm { font-size: 17px; }
+  .metric-sub { font-size: 11px; color: var(--text3); margin-top: 4px; }
+
+  /* ── TABS ── */
+  .tabs { display: flex; gap: 0; border-bottom: 1px solid var(--border); margin-bottom: 24px; background: var(--bg); border-radius: var(--radius-lg) var(--radius-lg) 0 0; padding: 0 4px; box-shadow: var(--shadow-sm); overflow-x: auto; }
+  .tab { padding: 14px 18px; cursor: pointer; border: none; background: none; font-size: 13px; font-weight: 500; color: var(--text2); border-bottom: 2px solid transparent; font-family: inherit; transition: all 0.15s; white-space: nowrap; }
+  .tab.active { color: var(--accent); border-bottom-color: var(--accent); font-weight: 600; }
+  .tab:hover:not(.active) { color: var(--text); background: var(--bg2); }
   .section { display: none; }
   .section.active { display: block; }
-  .row { display: flex; gap: 12px; flex-wrap: wrap; align-items: flex-end; margin-bottom: 12px; }
-  .field { display: flex; flex-direction: column; gap: 4px; }
-  .field label { font-size: 11px; color: var(--text2); font-weight: 500; text-transform: uppercase; letter-spacing: 0.3px; }
-  input, select, textarea { font-family: inherit; font-size: 13px; padding: 7px 10px; border: 0.5px solid var(--border2); border-radius: var(--radius); background: var(--bg); color: var(--text); outline: none; transition: border-color 0.15s; }
-  input:focus, select:focus, textarea:focus { border-color: var(--accent); box-shadow: 0 0 0 2px rgba(29,158,117,0.15); }
-  .btn { padding: 7px 14px; border: 0.5px solid var(--border2); border-radius: var(--radius); cursor: pointer; font-size: 13px; font-family: inherit; background: var(--bg); color: var(--text); transition: background 0.15s; white-space: nowrap; }
-  .btn:hover { background: var(--bg2); }
+
+  /* ── BUTTONS ── */
+  .btn { padding: 8px 14px; border: 1px solid var(--border2); border-radius: var(--radius); cursor: pointer; font-size: 13px; font-weight: 500; font-family: inherit; background: var(--bg); color: var(--text); transition: all 0.15s; white-space: nowrap; display: inline-flex; align-items: center; gap: 6px; }
+  .btn:hover { background: var(--bg2); border-color: var(--border2); box-shadow: var(--shadow-sm); }
   .btn.primary { background: var(--text); color: var(--bg); border-color: var(--text); }
-  .btn.primary:hover { opacity: 0.85; }
+  .btn.primary:hover { opacity: 0.88; }
   .btn.success { background: var(--accent); color: #fff; border-color: var(--accent); }
-  .btn.success:hover { opacity: 0.85; }
+  .btn.success:hover { background: var(--accent2); border-color: var(--accent2); }
   .btn.danger { color: var(--danger-text); border-color: var(--danger-border); background: transparent; }
-  .btn.danger:hover { background: var(--warn-bg); }
-  .btn.sm { padding: 4px 10px; font-size: 12px; }
+  .btn.danger:hover { background: var(--danger-bg); }
+  .btn.sm { padding: 5px 10px; font-size: 12px; }
+
+  /* ── FORMS ── */
+  .row { display: flex; gap: 12px; flex-wrap: wrap; align-items: flex-end; margin-bottom: 14px; }
+  .field { display: flex; flex-direction: column; gap: 5px; }
+  .field label { font-size: 11px; color: var(--text2); font-weight: 600; text-transform: uppercase; letter-spacing: 0.4px; }
+  input, select, textarea { font-family: inherit; font-size: 13px; padding: 8px 12px; border: 1px solid var(--border2); border-radius: var(--radius); background: var(--bg); color: var(--text); outline: none; transition: all 0.15s; }
+  input:focus, select:focus, textarea:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(5,150,105,0.1); }
+
+  /* ── TABLE ── */
   table { width: 100%; border-collapse: collapse; font-size: 13px; }
-  th { text-align: left; font-weight: 600; font-size: 11px; color: var(--text2); padding: 8px 10px; border-bottom: 0.5px solid var(--border); text-transform: uppercase; letter-spacing: 0.3px; }
-  td { padding: 8px 10px; border-bottom: 0.5px solid var(--border); vertical-align: middle; }
+  th { text-align: left; font-weight: 600; font-size: 11px; color: var(--text2); padding: 10px 12px; border-bottom: 1px solid var(--border); text-transform: uppercase; letter-spacing: 0.4px; background: var(--bg2); }
+  th:first-child { border-radius: 8px 0 0 0; }
+  th:last-child { border-radius: 0 8px 0 0; }
+  td { padding: 10px 12px; border-bottom: 1px solid var(--border); vertical-align: middle; }
   tr:last-child td { border-bottom: none; }
   tr:hover td { background: var(--bg2); }
-  .badge { display: inline-block; font-size: 11px; padding: 2px 8px; border-radius: 12px; background: var(--info-bg); color: var(--info-text); margin: 2px; font-weight: 500; }
-  .empresa-tag { display: inline-block; font-size: 11px; padding: 3px 10px; border-radius: 12px; background: var(--bg2); border: 0.5px solid var(--border2); margin: 3px; cursor: pointer; transition: all 0.15s; user-select: none; }
-  .empresa-tag.selected { background: var(--info-bg); border-color: var(--info-border); color: var(--info-text); font-weight: 500; }
-  .alert { padding: 10px 14px; border-radius: var(--radius); font-size: 13px; margin-bottom: 12px; border: 0.5px solid; }
+
+  /* ── BADGES ── */
+  .badge { display: inline-block; font-size: 11px; padding: 2px 8px; border-radius: 20px; background: var(--info-bg); color: var(--info-text); margin: 2px; font-weight: 600; border: 1px solid var(--info-border); }
+  .empresa-tag { display: inline-block; font-size: 11px; padding: 3px 10px; border-radius: 20px; background: var(--bg2); border: 1px solid var(--border2); margin: 3px; cursor: pointer; transition: all 0.15s; user-select: none; }
+  .empresa-tag.selected { background: var(--info-bg); border-color: var(--info-border); color: var(--info-text); font-weight: 600; }
+
+  /* ── ALERTS ── */
+  .alert { padding: 12px 16px; border-radius: var(--radius); font-size: 13px; margin-bottom: 14px; border: 1px solid; display: flex; align-items: flex-start; gap: 8px; }
   .alert.warn { background: var(--warn-bg); color: var(--warn-text); border-color: var(--warn-border); }
   .alert.ok { background: var(--success-bg); color: var(--success-text); border-color: var(--success-border); }
   .alert.info { background: var(--info-bg); color: var(--info-text); border-color: var(--info-border); }
-  .upload-zone { border: 2px dashed var(--border2); border-radius: var(--radius-lg); padding: 2.5rem; text-align: center; cursor: pointer; color: var(--text2); font-size: 13px; transition: all 0.2s; }
-  .upload-zone:hover { border-color: var(--accent); color: var(--text); }
+
+  /* ── UPLOAD ── */
+  .upload-zone { border: 2px dashed var(--border2); border-radius: var(--radius-xl); padding: 3rem 2rem; text-align: center; cursor: pointer; color: var(--text2); font-size: 13px; transition: all 0.2s; background: var(--bg2); }
+  .upload-zone:hover { border-color: var(--accent); color: var(--accent); background: var(--success-bg); }
   .upload-zone.drag { border-color: var(--accent); background: var(--success-bg); }
-  .progress-bar { height: 6px; background: var(--bg3); border-radius: 3px; flex: 1; overflow: hidden; min-width: 60px; }
-  .progress-fill { height: 100%; border-radius: 3px; background: var(--accent); transition: width 0.3s; }
-  .division-row { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 0.5px solid var(--border); }
+
+  /* ── PROGRESS ── */
+  .progress-bar { height: 8px; background: var(--bg3); border-radius: 4px; flex: 1; overflow: hidden; min-width: 60px; }
+  .progress-fill { height: 100%; border-radius: 4px; background: linear-gradient(90deg, var(--accent), var(--accent2)); transition: width 0.4s; }
+
+  /* ── DIVISÃO ── */
+  .division-row { display: flex; align-items: center; gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--border); }
   .division-row:last-child { border-bottom: none; }
   .emp-name-short { width: 200px; font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex-shrink: 0; }
+
+  /* ── MISC ── */
   .scroll-x { overflow-x: auto; }
   .w80 { width: 80px; }
   .w120 { width: 120px; }
   .w170 { width: 170px; }
   .flex1 { flex: 1; }
-  .sep { height: 0.5px; background: var(--border); margin: 14px 0; }
+  .sep { height: 1px; background: var(--border); margin: 16px 0; }
   .icon { font-size: 16px; }
-  .empty { color: var(--text3); font-size: 13px; padding: 20px 0; text-align: center; }
-  /* VINCULAÇÃO */
+  .empty { color: var(--text3); font-size: 13px; padding: 40px 0; text-align: center; }
+
+  /* ── VINCULAÇÃO ── */
   .vinc-table { width:100%;border-collapse:collapse;font-size:13px; }
-  .vinc-table thead th { font-size:11px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:0.3px;padding:9px 12px;border-bottom:1.5px solid var(--border);text-align:left;background:var(--bg2); }
-  .vinc-table tbody tr:hover td { background:rgba(0,0,0,0.02); }
-  .vinc-table td { padding:8px 12px;border-bottom:0.5px solid var(--border); }
+  .vinc-table thead th { font-size:11px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:0.4px;padding:10px 12px;border-bottom:1px solid var(--border);text-align:left;background:var(--bg2); }
+  .vinc-table tbody tr:hover td { background:var(--bg2); }
+  .vinc-table td { padding:10px 12px;border-bottom:1px solid var(--border); }
   .vinc-table tr:last-child td { border-bottom:none; }
   .vinc-cb { width:15px;height:15px;cursor:pointer;accent-color:var(--accent);flex-shrink:0; }
-  .vinc-todas { font-size:11px;padding:3px 10px;border-radius:8px;border:0.5px solid var(--border2);background:var(--bg);cursor:pointer;color:var(--text2);font-family:inherit;white-space:nowrap;width:100%; }
+  .vinc-todas { font-size:11px;padding:4px 10px;border-radius:8px;border:1px solid var(--border2);background:var(--bg);cursor:pointer;color:var(--text2);font-family:inherit;white-space:nowrap;width:100%;transition:all 0.15s; }
   .vinc-todas:hover { background:var(--info-bg);color:var(--info-text);border-color:var(--info-border); }
   .vinc-cod { font-weight:700;color:var(--info-text);white-space:nowrap; }
   .vinc-desc { font-weight:500;font-size:13px; }
   .vinc-count { font-size:11px;color:var(--text3);margin-top:3px; }
-  .vinc-checkboxes { display:flex;flex-wrap:wrap;gap:6px 16px;align-items:center; }
-  .vinc-label { display:inline-flex;align-items:center;gap:6px;cursor:pointer;font-size:12px;color:var(--text);padding:4px 10px;border-radius:6px;border:0.5px solid var(--border);background:var(--bg);transition:all 0.12s;user-select:none; }
+  .vinc-checkboxes { display:flex;flex-wrap:wrap;gap:6px 12px;align-items:center; }
+  .vinc-label { display:inline-flex;align-items:center;gap:6px;cursor:pointer;font-size:12px;color:var(--text);padding:5px 10px;border-radius:6px;border:1px solid var(--border);background:var(--bg);transition:all 0.12s;user-select:none; }
   .vinc-label:hover { border-color:var(--accent);background:var(--success-bg); }
-  .vinc-label:has(input:checked) { background:var(--info-bg);border-color:var(--info-border);color:var(--info-text);font-weight:500; }
+  .vinc-label:has(input:checked) { background:var(--info-bg);border-color:var(--info-border);color:var(--info-text);font-weight:600; }
   .vinc-emp-nome { white-space:nowrap; }
-  /* RELATÓRIO */
-  .rel-tab { display:inline-flex;align-items:center;gap:6px;padding:7px 16px;border-radius:var(--radius);border:0.5px solid var(--border2);cursor:pointer;font-size:13px;font-family:inherit;background:var(--bg);color:var(--text);transition:all 0.15s; }
+
+  /* ── RELATÓRIO ── */
+  .rel-tab { display:inline-flex;align-items:center;gap:6px;padding:8px 16px;border-radius:var(--radius);border:1px solid var(--border2);cursor:pointer;font-size:13px;font-weight:500;font-family:inherit;background:var(--bg);color:var(--text);transition:all 0.15s; }
   .rel-tab.active { background:var(--text);color:var(--bg);border-color:var(--text); }
   .rel-tab:hover:not(.active) { background:var(--bg2); }
-  .rel-empresa-header { background:var(--bg2);border-radius:var(--radius);padding:12px 16px;margin-bottom:12px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px; }
+  .rel-empresa-header { background:var(--bg2);border-radius:var(--radius);padding:14px 18px;margin-bottom:14px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;border:1px solid var(--border); }
   .rel-table { width:100%;border-collapse:collapse;font-size:13px;margin-bottom:4px; }
-  .rel-table th { font-size:11px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:0.3px;padding:7px 10px;border-bottom:1.5px solid var(--border);text-align:left; }
-  .rel-table td { padding:7px 10px;border-bottom:0.5px solid var(--border);vertical-align:middle; }
+  .rel-table th { font-size:11px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:0.4px;padding:9px 12px;border-bottom:1px solid var(--border);text-align:left;background:var(--bg2); }
+  .rel-table td { padding:9px 12px;border-bottom:1px solid var(--border);vertical-align:middle; }
   .rel-table tr:last-child td { border-bottom:none; }
-  .rel-table .total-row td { font-weight:700;background:var(--bg2);border-top:1.5px solid var(--border); }
+  .rel-table .total-row td { font-weight:700;background:var(--bg2);border-top:1px solid var(--border); }
   .rel-table .grand-row td { font-weight:700;background:var(--info-bg);color:var(--info-text);font-size:14px; }
-  .rel-section { margin-bottom:24px; }
-  /* PRINT */
+  .rel-section { margin-bottom:28px; }
+
+  /* ── MODAL ── */
+  .modal-overlay { position:fixed;inset:0;background:rgba(0,0,0,0.5);backdrop-filter:blur(4px);z-index:500;display:flex;align-items:center;justify-content:center;padding:16px; }
+  .modal-overlay.hidden { display:none; }
+  .modal { background:var(--bg);border-radius:var(--radius-xl);border:1px solid var(--border);width:100%;max-width:580px;max-height:90vh;overflow-y:auto;box-shadow:var(--shadow-lg); }
+  .modal-header { padding:20px 24px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between; }
+  .modal-body { padding:24px; }
+  .modal-footer { padding:16px 24px;border-top:1px solid var(--border);display:flex;gap:8px;justify-content:flex-end;background:var(--bg2);border-radius:0 0 var(--radius-xl) var(--radius-xl); }
+
+  /* ── HOME / PROC CARDS ── */
+  #processo-home { display:none; }
+  #processo-home.active { display:block; }
+  .proc-card { background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-lg);padding:18px 20px;margin-bottom:10px;display:flex;align-items:center;gap:16px;cursor:pointer;transition:all 0.18s;box-shadow:var(--shadow-sm); }
+  .proc-card:hover { border-color:var(--accent);box-shadow:var(--shadow), 0 0 0 3px rgba(5,150,105,0.08); transform: translateY(-1px); }
+  .proc-icon { width:46px;height:46px;border-radius:var(--radius);background:linear-gradient(135deg,var(--success-bg),var(--info-bg));display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0;border:1px solid var(--border); }
+  .proc-info { flex:1;min-width:0; }
+  .proc-nome { font-weight:700;font-size:15px;letter-spacing:-0.2px; }
+  .proc-meta { font-size:12px;color:var(--text2);margin-top:3px; }
+  .proc-actions { display:flex;gap:6px;flex-shrink:0; }
+
+  /* ── STATUS TAGS ── */
+  .tag-status { font-size: 11px; padding: 3px 10px; border-radius: 20px; font-weight: 600; letter-spacing: 0.2px; }
+  .tag-em-andamento { background: var(--warn-bg); color: var(--warn-text); border: 1px solid var(--warn-border); }
+  .tag-concluido { background: var(--success-bg); color: var(--success-text); border: 1px solid var(--success-border); }
+  .tag-fracassado { background: var(--danger-bg); color: var(--danger-text); border: 1px solid var(--danger-border); }
+  .tag-cancelado { background: var(--bg2); color: var(--text3); border: 1px solid var(--border2); }
+
+  /* ── LOGIN ── */
+  #login-screen { position:fixed;inset:0;background:linear-gradient(135deg,#f0fdf4 0%,#eff6ff 100%);z-index:9999;display:flex;align-items:center;justify-content:center;padding:16px; }
+  #login-screen.hidden { display:none; }
+  .login-card { background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-xl);padding:40px 36px;width:100%;max-width:400px;box-shadow:var(--shadow-lg); }
+  .login-logo { font-size:24px;font-weight:700;margin-bottom:4px;display:flex;align-items:center;gap:10px; }
+  .login-logo-icon { width:36px;height:36px;background:var(--accent);border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:18px; }
+  .login-logo span { color:var(--accent); }
+  .login-subtitle { font-size:13px;color:var(--text2);margin-bottom:32px;margin-top:2px; }
+  .login-field { display:flex;flex-direction:column;gap:6px;margin-bottom:18px; }
+  .login-field label { font-size:11px;color:var(--text2);font-weight:600;text-transform:uppercase;letter-spacing:0.4px; }
+  .login-field input { font-size:14px;padding:10px 14px;border:1px solid var(--border2);border-radius:var(--radius);background:var(--bg);color:var(--text);outline:none;transition:all 0.15s; }
+  .login-field input:focus { border-color:var(--accent);box-shadow:0 0 0 3px rgba(5,150,105,0.1); }
+  .login-btn { width:100%;padding:11px;background:var(--accent);color:#fff;border:none;border-radius:var(--radius);font-size:14px;font-weight:600;cursor:pointer;font-family:inherit;transition:all 0.15s;margin-top:4px; }
+  .login-btn:hover { background:var(--accent2);transform:translateY(-1px);box-shadow:0 4px 12px rgba(5,150,105,0.25); }
+  .login-btn:disabled { opacity:0.5;cursor:not-allowed;transform:none; }
+  .login-error { font-size:13px;color:var(--danger-text);background:var(--danger-bg);border:1px solid var(--danger-border);border-radius:var(--radius);padding:10px 14px;margin-bottom:16px;display:none; }
+  .login-spinner { display:inline-block;width:14px;height:14px;border:2px solid rgba(255,255,255,0.4);border-top-color:#fff;border-radius:50%;animation:spin 0.7s linear infinite;vertical-align:middle;margin-right:6px; }
+  @keyframes spin { to { transform:rotate(360deg); } }
+  .user-info { display:flex;align-items:center;gap:8px;font-size:12px;color:var(--text2); }
+
+  /* ── SUGESTÕES ── */
+  .sugestao-item { padding:10px 14px;cursor:pointer;font-size:13px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:8px;transition:background 0.1s; }
+  .sugestao-item:last-child { border-bottom:none; }
+  .sugestao-item:hover { background:var(--bg2); }
+  .sugestao-item .sug-nome { font-weight:500; }
+  .sugestao-item .sug-cnpj { font-size:11px;color:var(--text3); }
+  .sugestao-nova { padding:10px 14px;cursor:pointer;font-size:13px;color:var(--accent);font-weight:600;border-top:1px solid var(--border); }
+  .sugestao-nova:hover { background:var(--bg2); }
+
+  /* ── DASHBOARD CHARTS ── */
+  .dash-grid { display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px; }
+  .dash-grid.tri { grid-template-columns:1fr 1fr 1fr; }
+  @media(max-width:700px){ .dash-grid,.dash-grid.tri { grid-template-columns:1fr; } }
+  .chart-card { background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-lg);padding:20px 24px;box-shadow:var(--shadow-sm); }
+  .chart-title { font-size:12px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:16px; }
+  .chart-wrap { position:relative; }
+
+  /* ── PROC DASHBOARD (interno) ── */
+  .proc-dash-bar { height:10px;background:var(--bg3);border-radius:5px;overflow:hidden;margin:6px 0; }
+  .proc-dash-fill { height:100%;border-radius:5px;background:linear-gradient(90deg,var(--accent),var(--accent2));transition:width 0.5s; }
+
+  /* ── PRINT ── */
   @media print {
     body { background:#fff!important;color:#000!important;font-size:12px; }
     header,#proc-banner,.tabs,.header-actions,#rel-toolbar,#metrics-bar,.tab,
@@ -153,82 +291,32 @@
     #app-main { display:block!important;padding:0; }
     .section { display:none!important; }
     #tab-relatorio { display:block!important; }
-    .card { border:0.5px solid #ccc!important;box-shadow:none!important;break-inside:avoid;margin-bottom:16px; }
+    .card { border:1px solid #ccc!important;box-shadow:none!important;break-inside:avoid;margin-bottom:16px; }
     .rel-empresa-header { background:#f0f0f0!important;-webkit-print-color-adjust:exact; }
     .rel-table .total-row td { background:#f0f0f0!important;-webkit-print-color-adjust:exact; }
     .rel-table .grand-row td { background:#dceeff!important;-webkit-print-color-adjust:exact; }
     .rel-section { break-inside:avoid; }
     @page { margin:18mm 14mm; }
   }
-  @media (max-width: 600px) {
-    .header-actions .btn:not(.success) { display: none; }
-    .emp-name-short { width: 120px; }
+  @media(max-width:600px) {
+    .header-actions .btn:not(.success) { display:none; }
+    .emp-name-short { width:120px; }
+    header { padding:0 14px; }
+    .main { padding:16px 12px; }
   }
-  /* MODAL */
-  .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.45); z-index: 500; display: flex; align-items: center; justify-content: center; padding: 16px; }
-  .modal-overlay.hidden { display: none; }
-  .modal { background: var(--bg); border-radius: var(--radius-lg); border: 0.5px solid var(--border); width: 100%; max-width: 560px; max-height: 90vh; overflow-y: auto; box-shadow: 0 8px 32px rgba(0,0,0,0.18); }
-  .modal-header { padding: 18px 20px 14px; border-bottom: 0.5px solid var(--border); display: flex; align-items: center; justify-content: space-between; }
-  .modal-body { padding: 20px; }
-  .modal-footer { padding: 14px 20px; border-top: 0.5px solid var(--border); display: flex; gap: 8px; justify-content: flex-end; }
-  /* PROCESSO HOME */
-  #processo-home { display: none; }
-  #processo-home.active { display: block; }
-  .proc-card { background: var(--bg); border: 0.5px solid var(--border); border-radius: var(--radius-lg); padding: 16px 20px; margin-bottom: 10px; display: flex; align-items: center; gap: 16px; cursor: pointer; transition: border-color 0.15s, box-shadow 0.15s; }
-  .proc-card:hover { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(29,158,117,0.1); }
-  .proc-card.active-proc { border-color: var(--accent); background: var(--success-bg); }
-  .proc-icon { width: 44px; height: 44px; border-radius: var(--radius); background: var(--info-bg); display: flex; align-items: center; justify-content: center; font-size: 20px; flex-shrink: 0; }
-  .proc-info { flex: 1; min-width: 0; }
-  .proc-nome { font-weight: 600; font-size: 14px; }
-  .proc-meta { font-size: 12px; color: var(--text2); margin-top: 2px; }
-  .proc-actions { display: flex; gap: 6px; flex-shrink: 0; }
-  /* HEADER PROCESSO ATIVO */
-  #proc-banner { background: var(--info-bg); border-bottom: 0.5px solid var(--info-border); padding: 6px 24px; display: flex; align-items: center; gap: 10px; font-size: 13px; color: var(--info-text); }
-  #proc-banner.hidden { display: none; }
-  .autosave-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--accent); display: inline-block; margin-right: 4px; animation: pulse 2s infinite; }
-  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
-  .tag-status { font-size: 11px; padding: 2px 8px; border-radius: 10px; font-weight: 500; }
-  .tag-em-andamento { background: var(--warn-bg); color: var(--warn-text); border: 0.5px solid var(--warn-border); }
-  .tag-concluido { background: var(--success-bg); color: var(--success-text); border: 0.5px solid var(--success-border); }
-  .tag-fracassado { background: rgba(163,45,45,0.08); color: var(--danger-text); border: 0.5px solid var(--danger-border); }
-  .tag-cancelado { background: rgba(100,100,100,0.10); color: var(--text3); border: 0.5px solid var(--border2); }
-
-  /* LOGIN */
-  #login-screen { position:fixed;inset:0;background:var(--bg3);z-index:9999;display:flex;align-items:center;justify-content:center;padding:16px; }
-  #login-screen.hidden { display:none; }
-  .login-card { background:var(--bg);border:0.5px solid var(--border);border-radius:var(--radius-lg);padding:36px 32px;width:100%;max-width:380px;box-shadow:0 8px 32px rgba(0,0,0,0.12); }
-  .login-logo { font-size:22px;font-weight:700;margin-bottom:4px; }
-  .login-logo span { color:var(--accent); }
-  .login-subtitle { font-size:13px;color:var(--text2);margin-bottom:28px; }
-  .login-field { display:flex;flex-direction:column;gap:5px;margin-bottom:16px; }
-  .login-field label { font-size:11px;color:var(--text2);font-weight:600;text-transform:uppercase;letter-spacing:0.3px; }
-  .login-field input { font-size:14px;padding:9px 12px;border:0.5px solid var(--border2);border-radius:var(--radius);background:var(--bg);color:var(--text);outline:none;transition:border-color 0.15s; }
-  .login-field input:focus { border-color:var(--accent);box-shadow:0 0 0 2px rgba(29,158,117,0.15); }
-  .login-btn { width:100%;padding:10px;background:var(--accent);color:#fff;border:none;border-radius:var(--radius);font-size:14px;font-weight:600;cursor:pointer;font-family:inherit;transition:opacity 0.15s;margin-top:4px; }
-  .login-btn:hover { opacity:0.85; }
-  .login-btn:disabled { opacity:0.5;cursor:not-allowed; }
-  .login-error { font-size:13px;color:var(--danger-text);background:rgba(163,45,45,0.08);border:0.5px solid var(--danger-border);border-radius:var(--radius);padding:9px 12px;margin-bottom:14px;display:none; }
-  .login-toggle { text-align:center;margin-top:16px;font-size:13px;color:var(--text2); }
-  .login-toggle a { color:var(--accent);cursor:pointer;font-weight:500; }
-  .login-spinner { display:inline-block;width:14px;height:14px;border:2px solid rgba(255,255,255,0.4);border-top-color:#fff;border-radius:50%;animation:spin 0.7s linear infinite;vertical-align:middle;margin-right:6px; }
-  @keyframes spin { to { transform:rotate(360deg); } }
-  .user-info { display:flex;align-items:center;gap:8px;font-size:12px;color:var(--text2); }
-  .sugestao-item { padding:9px 14px;cursor:pointer;font-size:13px;border-bottom:0.5px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:8px; }
-  .sugestao-item:last-child { border-bottom:none; }
-  .sugestao-item:hover { background:var(--bg2); }
-  .sugestao-item .sug-nome { font-weight:500; }
-  .sugestao-item .sug-cnpj { font-size:11px;color:var(--text3); }
-  .sugestao-nova { padding:9px 14px;cursor:pointer;font-size:13px;color:var(--accent);font-weight:500;border-top:0.5px solid var(--border); }
-  .sugestao-nova:hover { background:var(--bg2); }
 </style>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 </head>
 <body>
 
 <!-- TELA DE LOGIN -->
 <div id="login-screen">
   <div class="login-card">
-    <div class="login-logo">Credencia<span>Gest</span></div>
+    <div class="login-logo">
+      <div class="login-logo-icon">📋</div>
+      Credencia<span>Gest</span>
+    </div>
     <div class="login-subtitle">Sistema de Gestão de Credenciamento</div>
     <div class="login-error" id="login-error"></div>
     <div class="login-field">
@@ -250,19 +338,26 @@
 </div>
 
 <header>
-  <div style="display:flex;align-items:center;gap:12px">
-    <div class="logo" style="cursor:pointer" onclick="goHome()">Credencia<span>Gest</span></div>
-    <div id="header-proc-name" style="font-size:13px;color:var(--text2);display:none">/ <span id="hpn-text"></span></div>
+  <div style="display:flex;align-items:center;gap:14px">
+    <div class="logo" onclick="goHome()">
+      <div class="logo-icon">📋</div>
+      Credencia<span>Gest</span>
+    </div>
+    <div id="header-proc-name" style="font-size:12px;color:var(--text3);display:none;align-items:center;gap:6px">
+      <span style="color:var(--border2)">›</span>
+      <span id="hpn-text" style="color:var(--text2);font-weight:500"></span>
+    </div>
   </div>
   <div class="header-actions">
     <div class="user-info" id="header-user-info" style="display:none">
-      <span id="header-user-email"></span>
-      <button class="btn sm" onclick="fazerLogout()" title="Sair">&#x23FB; Sair</button>
+      <span style="font-size:11px;background:var(--bg2);padding:4px 10px;border-radius:20px;border:1px solid var(--border)" id="header-user-email"></span>
+      <div class="header-divider"></div>
     </div>
-    <button class="btn" id="btn-processos" onclick="goHome()">&#128193; Processos</button>
-    <button class="btn" onclick="showTabDirect('importar')">&#8679; Importar PDF</button>
-    <button class="btn" onclick="salvarProcesso(true)">&#128190; Salvar</button>
-    <button class="btn success" onclick="exportExcel()">&#8681; Exportar Excel</button>
+    <button class="btn sm" id="btn-processos" onclick="goHome()">🏠 Processos</button>
+    <button class="btn sm" onclick="showTabDirect('importar')">⬆ Importar PDF</button>
+    <button class="btn sm" onclick="salvarProcesso(true)">💾 Salvar</button>
+    <button class="btn success sm" onclick="exportExcel()">⬇ Excel</button>
+    <button class="btn sm danger" onclick="fazerLogout()" title="Sair">⏻</button>
   </div>
 </header>
 <div id="proc-banner" class="hidden">
@@ -320,13 +415,13 @@
 <!-- TELA HOME DE PROCESSOS -->
 <div id="processo-home" style="display:none">
   <div class="main">
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:12px">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;flex-wrap:wrap;gap:12px">
       <div>
-        <div style="font-size:20px;font-weight:700">Meus processos</div>
-        <div style="font-size:13px;color:var(--text2);margin-top:2px">Selecione um processo para continuar ou crie um novo</div>
+        <div style="font-size:22px;font-weight:700;letter-spacing:-0.5px">Meus Processos</div>
+        <div style="font-size:13px;color:var(--text2);margin-top:4px">Gerencie e acompanhe seus credenciamentos</div>
       </div>
       <div style="display:flex;gap:8px">
-        <button class="btn" onclick="importarBackup()">&#8679; Carregar backup</button>
+        <button class="btn sm" onclick="importarBackup()">⬆ Carregar backup</button>
         <button class="btn primary" onclick="abrirModalNovoProcesso()">+ Novo processo</button>
       </div>
     </div>
@@ -346,12 +441,12 @@
   <div id="metrics-bar" class="metrics"></div>
 
   <div class="tabs">
-    <button class="tab active" onclick="showTab(event,'itens')">&#9776; Itens</button>
-    <button class="tab" onclick="showTab(event,'empresas')">&#127970; Empresas</button>
-    <button class="tab" onclick="showTab(event,'vinculacao')">&#128279; Vinculação</button>
-    <button class="tab" onclick="showTab(event,'divisao')">&#9878; Divisão</button>
-    <button class="tab" onclick="showTab(event,'importar')">&#8679; Importar</button>
-    <button class="tab" onclick="showTab(event,'relatorio')">&#128196; Relatório</button>
+    <button class="tab active" onclick="showTab(event,'itens')">📋 Itens</button>
+    <button class="tab" onclick="showTab(event,'empresas')">🏢 Empresas</button>
+    <button class="tab" onclick="showTab(event,'vinculacao')">🔗 Vinculação</button>
+    <button class="tab" onclick="showTab(event,'divisao')">⚖️ Divisão</button>
+    <button class="tab" onclick="showTab(event,'importar')">⬆ Importar</button>
+    <button class="tab" onclick="showTab(event,'relatorio')">📊 Relatório</button>
   </div>
 
   <!-- ITENS -->
@@ -925,6 +1020,7 @@ function atualizarBannerProcesso() {
 }
 
 function goHome() {
+  if (_procChart) { _procChart.destroy(); _procChart = null; }
   if (processoAtivo) salvarProcesso(false);
   clearInterval(autoSaveTimer);
   processoAtivo = null;
@@ -1021,22 +1117,24 @@ function renderListaProcessos() {
   if (!lista.length) { container.innerHTML = ''; empty.style.display = 'block'; return; }
   empty.style.display = 'none';
 
-  // Resumo global
+  // Métricas globais
   const totalProcessos = lista.length;
   const totalValor = lista.reduce((s,p) => s + (p.itens||[]).reduce((a,i) => a + i.qtde*i.vunit, 0), 0);
   const emAndamento = lista.filter(p => p.status === 'em_andamento').length;
+  const concluidos = lista.filter(p => p.status === 'concluido').length;
+  const totalEmpresas = new Set(lista.flatMap(p => (p.empresas||[]).map(e => e.cnpj||e.nome))).size;
+  const totalItens = lista.reduce((s,p) => s + (p.itens||[]).length, 0);
+  const semVinc = lista.reduce((s,p) => s + (p.itens||[]).filter(i => !i.empIds || !i.empIds.length).length, 0);
 
-  // Ordenação por prioridade: Em andamento → Novo → Concluído → Fracassado → Cancelado
+  // Ordenação: Em andamento → Concluído → Fracassado → Cancelado; dentro do grupo: mais recente primeiro
   const ordemStatus = { em_andamento: 0, concluido: 1, fracassado: 2, cancelado: 3 };
   const listaOrdenada = lista.slice().sort((a, b) => {
     const oa = ordemStatus[a.status] ?? 99;
     const ob = ordemStatus[b.status] ?? 99;
     if (oa !== ob) return oa - ob;
-    // Mesmo status: mais recente primeiro
     return new Date(b.atualizadoEm || 0) - new Date(a.atualizadoEm || 0);
   });
 
-  // Agrupa por status para exibir separadores
   const grupos = [
     { key: 'em_andamento', label: '🟡 Em andamento' },
     { key: 'concluido',    label: '🟢 Concluídos' },
@@ -1051,27 +1149,31 @@ function renderListaProcessos() {
       const vTotal = (p.itens||[]).reduce((s,i) => s + i.qtde*i.vunit, 0);
       const atualizado = p.atualizadoEm ? new Date(p.atualizadoEm).toLocaleDateString('pt-BR') : '—';
       return `<div class="proc-card" onclick="abrirProcesso('${p.id}')">
-        <div class="proc-icon">&#128196;</div>
+        <div class="proc-icon">📁</div>
         <div class="proc-info">
           <div class="proc-nome">${p.numero}</div>
-          ${(p.orgao||p.municipio) ? `<div class="proc-meta" style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
-            <span style="font-size:11px;color:var(--text3)">🏛️</span>
+          ${(p.orgao||p.municipio) ? `<div class="proc-meta" style="display:flex;align-items:center;gap:5px;margin-top:3px">
+            <span style="font-size:10px">🏛️</span>
             <span>${[p.orgao,p.municipio].filter(Boolean).join(' · ')}</span>
           </div>` : ''}
-          ${p.objeto ? `<div style="font-size:12px;color:var(--text2);margin-top:3px;display:flex;align-items:flex-start;gap:6px">
-            <span style="font-size:11px;color:var(--text3);margin-top:1px">📋</span>
-            <span style="flex:1;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;">${p.objeto}</span>
+          ${p.objeto ? `<div style="font-size:12px;color:var(--text2);margin-top:3px;display:flex;align-items:flex-start;gap:5px">
+            <span style="font-size:10px;margin-top:2px">📋</span>
+            <span style="flex:1;overflow:hidden;display:-webkit-box;-webkit-line-clamp:1;-webkit-box-orient:vertical;">${p.objeto}</span>
           </div>` : ''}
-          <div style="margin-top:6px;display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+          <div style="margin-top:8px;display:flex;align-items:center;gap:8px;flex-wrap:wrap">
             ${statusLabel(p.status)}
-            <span style="font-size:11px;color:var(--text3)">${nItens} iten(s) · ${nEmp} empresa(s) · ${fmt(vTotal)}</span>
-            <span style="font-size:11px;color:var(--text3)">Salvo em ${atualizado}</span>
+            <span style="font-size:11px;color:var(--text3)">${nItens} itens</span>
+            <span style="font-size:11px;color:var(--text3)">•</span>
+            <span style="font-size:11px;color:var(--text3)">${nEmp} empresas</span>
+            <span style="font-size:11px;color:var(--text3)">•</span>
+            <span style="font-size:11px;font-weight:600;color:var(--accent)">${fmt(vTotal)}</span>
+            <span style="font-size:11px;color:var(--text3);margin-left:auto">Atualizado ${atualizado}</span>
           </div>
         </div>
         <div class="proc-actions" onclick="event.stopPropagation()">
-          <button class="btn sm" onclick="abrirModalNovoProcesso('${p.id}')" title="Editar dados do processo">&#9998;</button>
-          <button class="btn sm" onclick="duplicarProcesso('${p.id}',event)" title="Duplicar">&#10065;</button>
-          <button class="btn danger sm" onclick="excluirProcesso('${p.id}',event)" title="Excluir">&#10005;</button>
+          <button class="btn sm" onclick="abrirModalNovoProcesso('${p.id}')" title="Editar">✏️</button>
+          <button class="btn sm" onclick="duplicarProcesso('${p.id}',event)" title="Duplicar">⧉</button>
+          <button class="btn danger sm" onclick="excluirProcesso('${p.id}',event)" title="Excluir">✕</button>
         </div>
       </div>`;
     }).join('');
@@ -1081,23 +1183,144 @@ function renderListaProcessos() {
     const procs = listaOrdenada.filter(p => (p.status || 'em_andamento') === g.key);
     if (!procs.length) return '';
     return `
-      <div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:0.5px;margin:18px 0 8px;padding-bottom:6px;border-bottom:0.5px solid var(--border)">${g.label} <span style="font-weight:400">(${procs.length})</span></div>
+      <div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:0.6px;margin:20px 0 10px;display:flex;align-items:center;gap:8px">
+        ${g.label}
+        <span style="font-weight:400;background:var(--bg2);padding:1px 8px;border-radius:10px;border:1px solid var(--border)">${procs.length}</span>
+      </div>
       ${renderGrupo(procs)}
     `;
   }).join('');
 
   container.innerHTML = `
-    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-bottom:20px">
-      <div class="metric"><div class="metric-label">Processos</div><div class="metric-value">${totalProcessos}</div></div>
-      <div class="metric"><div class="metric-label">Em andamento</div><div class="metric-value">${emAndamento}</div></div>
-      <div class="metric"><div class="metric-label">Valor total</div><div class="metric-value sm">${fmt(totalValor)}</div></div>
-      <div class="metric" style="cursor:pointer;border-style:dashed" onclick="exportarBackup()"><div class="metric-label">Backup</div><div style="font-size:13px;color:var(--accent);font-weight:600;margin-top:6px">&#8681; Exportar JSON</div></div>
+    <!-- MÉTRICAS -->
+    <div class="metrics" style="grid-template-columns:repeat(auto-fit,minmax(150px,1fr))">
+      <div class="metric">
+        <div class="metric-accent"></div>
+        <div class="metric-label">Processos</div>
+        <div class="metric-value">${totalProcessos}</div>
+        <div class="metric-sub">${emAndamento} em andamento</div>
+      </div>
+      <div class="metric">
+        <div class="metric-accent blue"></div>
+        <div class="metric-label">Empresas únicas</div>
+        <div class="metric-value">${totalEmpresas}</div>
+        <div class="metric-sub">no banco de dados</div>
+      </div>
+      <div class="metric">
+        <div class="metric-accent purple"></div>
+        <div class="metric-label">Total de itens</div>
+        <div class="metric-value">${totalItens}</div>
+        <div class="metric-sub">em todos os processos</div>
+      </div>
+      <div class="metric">
+        <div class="metric-accent orange"></div>
+        <div class="metric-label">Valor total</div>
+        <div class="metric-value sm">${fmt(totalValor)}</div>
+        <div class="metric-sub">${concluidos} processo(s) concluído(s)</div>
+      </div>
+      ${semVinc > 0 ? `<div class="metric" style="border-color:var(--warn-border)">
+        <div class="metric-accent red"></div>
+        <div class="metric-label" style="color:var(--warn-text)">⚠ Sem vínculo</div>
+        <div class="metric-value" style="color:var(--warn-text)">${semVinc}</div>
+        <div class="metric-sub">itens sem empresa</div>
+      </div>` : ''}
+      <div class="metric" style="cursor:pointer;border-style:dashed" onclick="exportarBackup()">
+        <div class="metric-label">Backup</div>
+        <div style="font-size:22px;margin:6px 0">💾</div>
+        <div style="font-size:12px;color:var(--accent);font-weight:600">Exportar JSON</div>
+      </div>
     </div>
+
+    <!-- GRÁFICOS -->
+    <div class="dash-grid" id="dash-charts-row">
+      <div class="chart-card">
+        <div class="chart-title">Distribuição por status</div>
+        <div class="chart-wrap" style="height:200px;display:flex;align-items:center;justify-content:center">
+          <canvas id="chart-status"></canvas>
+        </div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">Top processos por valor (R$)</div>
+        <div class="chart-wrap" style="height:200px">
+          <canvas id="chart-valor"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <!-- LISTA -->
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
-      <div style="font-size:12px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:0.4px">Lista de processos</div>
+      <div style="font-size:13px;font-weight:700;color:var(--text)">Processos</div>
     </div>
     ${gruposHtml}
   `;
+
+  // Renderizar gráficos após DOM atualizado
+  requestAnimationFrame(() => renderDashCharts(lista));
+}
+
+let _dashCharts = {};
+function renderDashCharts(lista) {
+  // Destruir anteriores
+  Object.values(_dashCharts).forEach(c => c && c.destroy());
+  _dashCharts = {};
+
+  const statusCounts = { em_andamento: 0, concluido: 0, fracassado: 0, cancelado: 0 };
+  lista.forEach(p => { if (statusCounts[p.status] !== undefined) statusCounts[p.status]++; else statusCounts['em_andamento']++; });
+
+  const statusLabels = ['Em andamento', 'Concluído', 'Fracassado', 'Cancelado'];
+  const statusData = [statusCounts.em_andamento, statusCounts.concluido, statusCounts.fracassado, statusCounts.cancelado];
+  const statusColors = ['#f59e0b', '#059669', '#ef4444', '#a1a1aa'];
+
+  const ctxStatus = document.getElementById('chart-status');
+  if (ctxStatus) {
+    _dashCharts.status = new Chart(ctxStatus, {
+      type: 'doughnut',
+      data: { labels: statusLabels, datasets: [{ data: statusData, backgroundColor: statusColors, borderWidth: 2, borderColor: 'var(--bg)' }] },
+      options: {
+        responsive: true, maintainAspectRatio: false, cutout: '68%',
+        plugins: {
+          legend: { position: 'right', labels: { font: { size: 11, family: 'Inter' }, color: '#71717a', boxWidth: 10, padding: 12 } },
+          tooltip: { callbacks: { label: ctx => ' ' + ctx.label + ': ' + ctx.raw } }
+        }
+      }
+    });
+  }
+
+  // Top 6 processos por valor
+  const top = lista.slice().sort((a,b) => {
+    const va = (a.itens||[]).reduce((s,i)=>s+i.qtde*i.vunit,0);
+    const vb = (b.itens||[]).reduce((s,i)=>s+i.qtde*i.vunit,0);
+    return vb - va;
+  }).slice(0, 6);
+
+  const ctxValor = document.getElementById('chart-valor');
+  if (ctxValor) {
+    _dashCharts.valor = new Chart(ctxValor, {
+      type: 'bar',
+      data: {
+        labels: top.map(p => p.numero.length > 22 ? p.numero.slice(0,20)+'…' : p.numero),
+        datasets: [{
+          label: 'Valor (R$)',
+          data: top.map(p => (p.itens||[]).reduce((s,i)=>s+i.qtde*i.vunit,0)),
+          backgroundColor: top.map(p => p.status === 'em_andamento' ? 'rgba(5,150,105,0.75)' : p.status === 'concluido' ? 'rgba(5,150,105,0.35)' : 'rgba(161,161,170,0.4)'),
+          borderRadius: 6, borderSkipped: false,
+        }]
+      },
+      options: {
+        indexAxis: 'y', responsive: true, maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false },
+          tooltip: { callbacks: { label: ctx => ' R$ ' + Number(ctx.raw).toLocaleString('pt-BR',{minimumFractionDigits:2}) } }
+        },
+        scales: {
+          x: { grid: { color: 'rgba(0,0,0,0.04)' }, ticks: { font:{size:10,family:'Inter'}, color:'#71717a', callback: v => 'R$' + (v>=1000?(v/1000).toFixed(0)+'k':v) } },
+          y: { grid: { display: false }, ticks: { font:{size:11,family:'Inter'}, color:'#18181b' } }
+        }
+      }
+    });
+  }
+}
+
 }
 
 // ---- TAB NAVIGATION ----
@@ -1129,6 +1352,7 @@ function fmt(v) {
 }
 
 // ---- METRICS ----
+let _procChart = null;
 function updateMetrics() {
   const totalGeral = itens.reduce((s, i) => s + i.qtde * i.vunit, 0);
   let alocado = 0;
@@ -1137,12 +1361,79 @@ function updateMetrics() {
       if (divisoes[it.cod] && divisoes[it.cod][e.id]) alocado += divisoes[it.cod][e.id] * it.vunit;
     });
   });
+  const pct = totalGeral > 0 ? (alocado / totalGeral * 100) : 0;
+  const itensSemVinc = itens.filter(i => !i.empIds || !i.empIds.length).length;
+
+  // Empresa com mais valor alocado
+  let topEmp = null, topVal = 0;
+  empresas.forEach(e => {
+    let v = 0;
+    itens.forEach(it => { v += ((divisoes[it.cod]&&divisoes[it.cod][e.id])||0)*it.vunit; });
+    if (v > topVal) { topVal = v; topEmp = e.nome; }
+  });
+
   document.getElementById('metrics-bar').innerHTML = `
-    <div class="metric"><div class="metric-label">Total de itens</div><div class="metric-value">${itens.length}</div></div>
-    <div class="metric"><div class="metric-label">Empresas</div><div class="metric-value">${empresas.length}</div></div>
-    <div class="metric"><div class="metric-label">Valor total geral</div><div class="metric-value sm">${fmt(totalGeral)}</div></div>
-    <div class="metric"><div class="metric-label">Valor alocado</div><div class="metric-value sm">${fmt(alocado)}</div></div>
+    <div class="metric">
+      <div class="metric-accent"></div>
+      <div class="metric-label">Itens</div>
+      <div class="metric-value">${itens.length}</div>
+      <div class="metric-sub">${itensSemVinc > 0 ? '<span style="color:var(--warn-text)">⚠ '+itensSemVinc+' sem vínculo</span>' : '✓ todos vinculados'}</div>
+    </div>
+    <div class="metric">
+      <div class="metric-accent blue"></div>
+      <div class="metric-label">Empresas</div>
+      <div class="metric-value">${empresas.length}</div>
+      <div class="metric-sub">${topEmp ? 'Maior: '+topEmp.substring(0,18)+(topEmp.length>18?'…':'') : '—'}</div>
+    </div>
+    <div class="metric">
+      <div class="metric-accent purple"></div>
+      <div class="metric-label">Valor total</div>
+      <div class="metric-value sm">${fmt(totalGeral)}</div>
+      <div class="metric-sub">do processo</div>
+    </div>
+    <div class="metric" style="grid-column:span 1">
+      <div class="metric-accent orange"></div>
+      <div class="metric-label">Alocado</div>
+      <div class="metric-value sm">${fmt(alocado)}</div>
+      <div style="margin-top:6px">
+        <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--text3);margin-bottom:4px">
+          <span>${pct.toFixed(1)}% distribuído</span>
+        </div>
+        <div class="proc-dash-bar"><div class="proc-dash-fill" style="width:${Math.min(pct,100)}%"></div></div>
+      </div>
+    </div>
+    <div class="metric" style="padding:16px 20px">
+      <div class="metric-accent" style="background:#8b5cf6"></div>
+      <div class="metric-label">Por empresa</div>
+      <div class="chart-wrap" style="height:80px">
+        <canvas id="chart-proc-emp"></canvas>
+      </div>
+    </div>
   `;
+
+  // Gráfico de barras por empresa
+  requestAnimationFrame(() => {
+    const ctx = document.getElementById('chart-proc-emp');
+    if (!ctx || !empresas.length) return;
+    if (_procChart) _procChart.destroy();
+    const vals = empresas.map(e => itens.reduce((s,it)=>s+((divisoes[it.cod]&&divisoes[it.cod][e.id])||0)*it.vunit,0));
+    const maxVal = Math.max(...vals,1);
+    _procChart = new Chart(ctx, {
+      type: 'bar',
+      data: {
+        labels: empresas.map(e => e.nome.length>14 ? e.nome.slice(0,12)+'…' : e.nome),
+        datasets: [{ data: vals, backgroundColor: 'rgba(5,150,105,0.65)', borderRadius: 4, borderSkipped: false }]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: { legend:{display:false}, tooltip:{ callbacks:{ label: ctx=>' '+fmt(ctx.raw) } } },
+        scales: {
+          x: { grid:{display:false}, ticks:{font:{size:9},color:'#a1a1aa',maxRotation:30} },
+          y: { display:false }
+        }
+      }
+    });
+  });
 }
 
 // ---- VINCULAÇÃO (checkbox grid) ----
