@@ -371,6 +371,7 @@
   <div class="header-actions">
     <div class="user-info" id="header-user-info" style="display:none">
       <span style="font-size:11px;background:var(--bg2);padding:4px 10px;border-radius:20px;border:1px solid var(--border)" id="header-user-email"></span>
+      <button class="btn sm" onclick="abrirModalPerfil()" title="Meu perfil">👤 Perfil</button>
       <button class="btn sm" onclick="fazerLogout()" title="Sair">⏻ Sair</button>
       <div class="header-divider"></div>
     </div>
@@ -3158,5 +3159,160 @@ document.getElementById('rel-emp-select').addEventListener('change', renderRelat
     </div>
   </div>
 </div>
+<!-- MODAL PERFIL -->
+<div id="modal-perfil" class="modal-overlay hidden">
+  <div class="modal" style="max-width:460px">
+    <div class="modal-header">
+      <div>
+        <div style="font-weight:700;font-size:15px">👤 Meu perfil</div>
+        <div style="font-size:12px;color:var(--text2);margin-top:2px" id="perfil-email-label"></div>
+      </div>
+      <button class="btn sm" onclick="fecharModalPerfil()">✕</button>
+    </div>
+    <div class="modal-body" style="display:grid;gap:0;padding:0">
+
+      <!-- TROCAR E-MAIL -->
+      <div style="padding:20px 24px;border-bottom:1px solid var(--border)">
+        <div style="font-size:12px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:0.4px;margin-bottom:14px">✉️ Alterar e-mail</div>
+        <div style="display:grid;gap:10px">
+          <div class="field">
+            <label>Novo e-mail</label>
+            <input type="email" id="perfil-novo-email" placeholder="novo@email.com" style="width:100%">
+          </div>
+          <div class="field">
+            <label>Confirmar novo e-mail</label>
+            <input type="email" id="perfil-conf-email" placeholder="novo@email.com" style="width:100%">
+          </div>
+        </div>
+        <div id="perfil-email-msg" style="margin-top:10px;font-size:12px;display:none"></div>
+        <div style="margin-top:12px">
+          <button class="btn primary" onclick="alterarEmail()">Salvar novo e-mail</button>
+        </div>
+      </div>
+
+      <!-- TROCAR SENHA -->
+      <div style="padding:20px 24px">
+        <div style="font-size:12px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:0.4px;margin-bottom:14px">🔒 Alterar senha</div>
+        <div style="display:grid;gap:10px">
+          <div class="field">
+            <label>Nova senha</label>
+            <div style="position:relative">
+              <input type="password" id="perfil-nova-senha" placeholder="Mínimo 6 caracteres" style="width:100%;padding-right:40px">
+              <button onclick="toggleSenhaVisib('perfil-nova-senha',this)" style="position:absolute;right:8px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;font-size:14px;color:var(--text2);padding:0">👁</button>
+            </div>
+          </div>
+          <div class="field">
+            <label>Confirmar nova senha</label>
+            <div style="position:relative">
+              <input type="password" id="perfil-conf-senha" placeholder="Repita a nova senha" style="width:100%;padding-right:40px">
+              <button onclick="toggleSenhaVisib('perfil-conf-senha',this)" style="position:absolute;right:8px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;font-size:14px;color:var(--text2);padding:0">👁</button>
+            </div>
+          </div>
+        </div>
+        <div id="perfil-senha-msg" style="margin-top:10px;font-size:12px;display:none"></div>
+        <div style="margin-top:12px">
+          <button class="btn primary" onclick="alterarSenha()">Salvar nova senha</button>
+        </div>
+      </div>
+
+    </div>
+    <div class="modal-footer" style="justify-content:flex-start">
+      <span style="font-size:11px;color:var(--text3)">As alterações são aplicadas imediatamente na sua conta.</span>
+    </div>
+  </div>
+</div>
+
+<script>
+function abrirModalPerfil() {
+  const email = _usuarioAtual ? _usuarioAtual.email : '';
+  document.getElementById('perfil-email-label').textContent = email;
+  document.getElementById('perfil-novo-email').value = '';
+  document.getElementById('perfil-conf-email').value = '';
+  document.getElementById('perfil-nova-senha').value = '';
+  document.getElementById('perfil-conf-senha').value = '';
+  setPerfilMsg('email', '', '');
+  setPerfilMsg('senha', '', '');
+  document.getElementById('modal-perfil').classList.remove('hidden');
+}
+
+function fecharModalPerfil() {
+  document.getElementById('modal-perfil').classList.add('hidden');
+}
+
+function setPerfilMsg(tipo, msg, status) {
+  const el = document.getElementById('perfil-' + tipo + '-msg');
+  if (!msg) { el.style.display = 'none'; return; }
+  el.style.display = 'block';
+  const cores = {
+    ok:   { bg: 'var(--success-bg)', color: 'var(--success-text)', border: 'var(--success-border)' },
+    erro: { bg: 'var(--danger-bg)',  color: 'var(--danger-text)',  border: 'var(--danger-border)'  },
+    info: { bg: 'var(--info-bg)',    color: 'var(--info-text)',    border: 'var(--info-border)'    },
+  };
+  const c = cores[status] || cores.info;
+  el.style.cssText = `display:block;font-size:12px;padding:8px 12px;border-radius:var(--radius);border:1px solid ${c.border};background:${c.bg};color:${c.color}`;
+  el.textContent = msg;
+}
+
+async function alterarEmail() {
+  const novo = document.getElementById('perfil-novo-email').value.trim();
+  const conf = document.getElementById('perfil-conf-email').value.trim();
+  if (!novo) { setPerfilMsg('email', 'Informe o novo e-mail.', 'erro'); return; }
+  if (novo !== conf) { setPerfilMsg('email', 'Os e-mails não coincidem.', 'erro'); return; }
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(novo)) { setPerfilMsg('email', 'E-mail inválido.', 'erro'); return; }
+  setPerfilMsg('email', 'Atualizando...', 'info');
+  try {
+    const { error } = await supa.auth.updateUser({ email: novo });
+    if (error) throw error;
+    setPerfilMsg('email', '✓ E-mail atualizado! Verifique sua caixa de entrada para confirmar.', 'ok');
+    document.getElementById('perfil-novo-email').value = '';
+    document.getElementById('perfil-conf-email').value = '';
+    _usuarioAtual.email = novo;
+    document.getElementById('header-user-email').textContent = novo;
+    document.getElementById('perfil-email-label').textContent = novo;
+  } catch(err) {
+    const msgs = {
+      'Email already in use': 'Este e-mail já está em uso por outra conta.',
+      'Unable to validate email address: invalid format': 'Formato de e-mail inválido.',
+    };
+    setPerfilMsg('email', msgs[err.message] || err.message, 'erro');
+  }
+}
+
+async function alterarSenha() {
+  const nova = document.getElementById('perfil-nova-senha').value;
+  const conf = document.getElementById('perfil-conf-senha').value;
+  if (!nova) { setPerfilMsg('senha', 'Informe a nova senha.', 'erro'); return; }
+  if (nova.length < 6) { setPerfilMsg('senha', 'A senha deve ter pelo menos 6 caracteres.', 'erro'); return; }
+  if (nova !== conf) { setPerfilMsg('senha', 'As senhas não coincidem.', 'erro'); return; }
+  setPerfilMsg('senha', 'Atualizando...', 'info');
+  try {
+    const { error } = await supa.auth.updateUser({ password: nova });
+    if (error) throw error;
+    setPerfilMsg('senha', '✓ Senha alterada com sucesso!', 'ok');
+    document.getElementById('perfil-nova-senha').value = '';
+    document.getElementById('perfil-conf-senha').value = '';
+  } catch(err) {
+    const msgs = {
+      'New password should be different from the old password.': 'A nova senha deve ser diferente da senha atual.',
+      'Password should be at least 6 characters.': 'A senha deve ter pelo menos 6 caracteres.',
+    };
+    setPerfilMsg('senha', msgs[err.message] || err.message, 'erro');
+  }
+}
+
+function toggleSenhaVisib(inputId, btn) {
+  const input = document.getElementById(inputId);
+  if (input.type === 'password') { input.type = 'text'; btn.textContent = '🙈'; }
+  else { input.type = 'password'; btn.textContent = '👁'; }
+}
+
+(function() {
+  const overlay = document.getElementById('modal-perfil');
+  let mousedownOnOverlay = false;
+  overlay.addEventListener('mousedown', e => { mousedownOnOverlay = (e.target === overlay); });
+  overlay.addEventListener('mouseup', e => { if (mousedownOnOverlay && e.target === overlay) fecharModalPerfil(); mousedownOnOverlay = false; });
+})();
+</script>
+
 </body>
 </html>
