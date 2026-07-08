@@ -388,11 +388,11 @@
       <div class="login-error" id="login-error"></div>
       <div class="login-field">
         <label>E-mail</label>
-        <input type="email" id="login-email" placeholder="seu@email.com" autocomplete="email">
+        <input type="email" id="login-email" placeholder="seu@email.com" autocomplete="off" readonly onfocus="this.removeAttribute('readonly')">
       </div>
       <div class="login-field">
         <label>Senha</label>
-        <input type="password" id="login-senha" placeholder="••••••••" autocomplete="current-password">
+        <input type="password" id="login-senha" placeholder="••••••••" autocomplete="off" readonly onfocus="this.removeAttribute('readonly')">
       </div>
       <button class="login-btn" id="login-btn" onclick="fazerLogin()">Entrar</button>
       <div style="text-align:center;margin-top:14px;font-size:12px">
@@ -3138,11 +3138,15 @@ document.addEventListener('keydown', e => {
   if ((e.ctrlKey || e.metaKey) && e.key === 's') { e.preventDefault(); salvarProcesso(true); }
 });
 
-// Login com Enter
-document.addEventListener('keydown', e => {
-  if (e.key === 'Enter' && !document.getElementById('login-screen').classList.contains('hidden')) {
-    fazerLogin();
-  }
+// Login com Enter — só dispara se o usuário interagiu com os campos
+let _loginInteragiu = false;
+document.getElementById('login-email').addEventListener('input', () => { _loginInteragiu = true; });
+document.getElementById('login-senha').addEventListener('input', () => { _loginInteragiu = true; });
+document.getElementById('login-email').addEventListener('keydown', e => {
+  if (e.key === 'Enter') { _loginInteragiu = true; fazerLogin(); }
+});
+document.getElementById('login-senha').addEventListener('keydown', e => {
+  if (e.key === 'Enter') { _loginInteragiu = true; fazerLogin(); }
 });
 
 // Filtro de empresa no relatório
@@ -3172,8 +3176,14 @@ document.getElementById('rel-emp-select').addEventListener('change', renderRelat
 
   const { data: { session } } = await supa.auth.getSession();
   if (session && session.user) {
+    // Só loga automaticamente se NÃO estiver na tela de login visível
+    // (evita login automático indesejado por autocomplete ou sessão residual)
     _usuarioAtual = session.user;
     await iniciarSessao();
+  } else {
+    // Garante que a tela de login está visível e limpa
+    document.getElementById('login-screen').classList.remove('hidden');
+    setTimeout(() => { document.getElementById('login-email').focus(); }, 100);
   }
 })();
 </script>
