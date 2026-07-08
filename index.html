@@ -2185,12 +2185,12 @@ async function handlePDF(input) {
 async function parseTextFromPDF(text) {
   // ---- Limpeza de ruídos de cabeçalho/rodapé de página ----
   let t = text
-    .replace(/A autenticidade do documento pode ser verificada[^P]*/g, ' ')
-    .replace(/Documento gerado eletronicamente[^C]*/g, ' ')
+    .replace(/A autenticidade do documento pode ser verificada no site https?:\/\/\S+/gi, ' ')
+    .replace(/Documento gerado eletronicamente no Portal de Compras Públicas em [\d\/]+ às [\d:]+\.?/gi, ' ')
     .replace(/Código verificador:\s*\w+/gi, ' ')
     .replace(/Página \d+ de \d+/gi, ' ')
     .replace(/CREDENCIADOS DO PROCESSO/g, ' ')
-    .replace(/Código\s+Produto\s+Modelo\s+Marca\/Fabricante\s+Qtde\s+Valor\s+Unit[aá]rio\s+Valor\s+Total/gi, ' THEAD ')
+    .replace(/Código\s+Produto\s+Modelo\s+Marca\/Fabricante\s+Qtde\s+Valor\s+Unit[aá]rio\s+Valor\s+Total/gi, ' ')
     .replace(/\s{2,}/g, ' ')
     .trim();
 
@@ -2211,19 +2211,19 @@ async function parseTextFromPDF(text) {
     return;
   }
 
-  // ---- Para cada CNPJ, extrai nome (olhando para trás até o pipe) e itens (bloco após o cabeçalho) ----
+  // ---- Para cada CNPJ, extrai nome e itens ----
   const dadosEmpresas = cnpjsEncontrados.map((c, i) => {
-    // Encontra o último pipe antes deste CNPJ (separa nome do "Tipo:")
+    // Encontra o último pipe antes deste CNPJ
     const searchArea = t.slice(0, c.pos);
     const pipesAntes = [...searchArea.matchAll(/\|/g)];
     const lastPipe = pipesAntes.length > 0 ? pipesAntes[pipesAntes.length - 1].index : -1;
 
     // Extrai e limpa o nome
-    const areaAntes = t.slice(Math.max(0, lastPipe > 0 ? lastPipe - 200 : 0), lastPipe > 0 ? lastPipe : c.pos);
+    const areaAntes = t.slice(Math.max(0, lastPipe > 0 ? lastPipe - 250 : 0), lastPipe > 0 ? lastPipe : c.pos);
     let nome = areaAntes
       .replace(/TOTAL\s+DO\s+VENCEDOR\s+R\$[\d\s\.,]+/gi, '|||')
       .replace(/R\$[\s\d\.,]+/g, ' ')
-      .replace(/[\d\.,]+\s*(UND|Cons\.?|Exame|SV|THEAD)\s*/gi, ' ')
+      .replace(/[\d\.,]+\s*(UND|Cons\.?|Exame|SV)\s*/gi, ' ')
       .replace(/\s{2,}/g, ' ');
     const partes = nome.split('|||');
     nome = partes[partes.length - 1].trim();
@@ -2237,7 +2237,7 @@ async function parseTextFromPDF(text) {
     let bloco = t.slice(c.fim, proximoPipe > c.fim ? proximoPipe : t.length);
     bloco = bloco.replace(/TOTAL\s+DO\s+VENCEDOR.*/i, '');
 
-    // Códigos de item: 4 dígitos começando com 0, seguidos de letra maiúscula
+    // Códigos: 4 dígitos começando com 0, seguidos de letra maiúscula
     const itemRe = /(?<![(\d\-])\b(0\d{3})\s+[A-ZÁÉÍÓÚÃÕÂÊÎÔÛÀÈÌÒÙÇ]/g;
     const itensEncontrados = [...new Set([...bloco.matchAll(itemRe)].map(x => x[1]))];
 
@@ -2248,7 +2248,8 @@ async function parseTextFromPDF(text) {
   let addedEmp = 0, vinculados = 0, fracassados = [], naoEncontrados = [];
 
   for (const d of dadosEmpresas) {
-    if (!d.nome) continue;
+    if (!d.nome || d.nome.length < 3) continue;
+
     let empProcesso = empresas.find(e => e.cnpj === d.cnpj);
     if (!empProcesso) {
       const id = 'e' + Date.now() + Math.random().toString(36).substr(2, 5);
@@ -2257,17 +2258,26 @@ async function parseTextFromPDF(text) {
       addedEmp++;
       salvarEmpresaBanco({ nome: d.nome, cnpj: d.cnpj }).catch(() => {});
     }
-    d.itens.forEach(cod => {
-      const item = itens.find(i => i.cod === cod);
+
+    d.itens.forEach(codPDF => {
+      // Busca o item pelo código — tenta com e sem zeros à esquerda
+      const item = itens.find(i =>
+        i.cod === codPDF ||
+        i.cod === codPDF.replace(/^0+/, '') ||
+        i.cod.padStart(4, '0') === codPDF
+      );
       if (item) {
-        if (!item.empIds.includes(empProcesso.id)) { item.empIds.push(empProcesso.id); vinculados++; }
+        if (!item.empIds.includes(empProcesso.id)) {
+          item.empIds.push(empProcesso.id);
+          vinculados++;
+        }
       } else {
-        if (!naoEncontrados.includes(cod)) naoEncontrados.push(cod);
+        if (!naoEncontrados.includes(codPDF)) naoEncontrados.push(codPDF);
       }
     });
   }
 
-  // Marca fracassados
+  // Marca fracassados: item sem nenhuma empresa vinculada após importação
   itens.forEach(it => {
     if (!it.empIds || it.empIds.length === 0) {
       it.status = 'fracassado';
@@ -2282,8 +2292,10 @@ async function parseTextFromPDF(text) {
     : `<div style="margin-top:8px">&#10003; Nenhum item fracassado.</div>`;
 
   const naoEncontradosHtml = naoEncontrados.length
-    ? `<div style="margin-top:6px;font-size:12px;color:var(--text3)">&#9432; Códigos do PDF não encontrados nos itens do processo: ${naoEncontrados.map(c => `<code>${c}</code>`).join(', ')}</div>`
+    ? `<div style="margin-top:6px;font-size:12px;color:var(--text3)">&#9432; Códigos do PDF não encontrados nos itens do processo: ${naoEncontrados.slice(0, 20).map(c => `<code>${c}</code>`).join(', ')}${naoEncontrados.length > 20 ? ` e mais ${naoEncontrados.length - 20}...` : ''}</div>`
     : '';
+
+  const empComLixo = dadosEmpresas.filter(d => d.nome.length < 3);
 
   document.getElementById('pdf-preview').innerHTML = `
     <div class="card" style="border-color:var(--success-border)">
@@ -2304,6 +2316,7 @@ async function parseTextFromPDF(text) {
   updateMetrics();
   await salvarProcesso(false);
 }
+
 
 function parsePastedText() {
   const text = document.getElementById('txt-import').value;
