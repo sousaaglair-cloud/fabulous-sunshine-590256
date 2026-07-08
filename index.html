@@ -2185,8 +2185,10 @@ async function handlePDF(input) {
 async function parseTextFromPDF(text) {
   // ---- Limpeza de ruídos de cabeçalho/rodapé de página ----
   let t = text
-    .replace(/A autenticidade do documento pode ser verificada no site https?:\/\/\S+/gi, ' ')
-    .replace(/Documento gerado eletronicamente no Portal de Compras Públicas em [\d\/]+ às [\d:]+\.?/gi, ' ')
+    .replace(/A autenticidade do documento pode ser verificada[^\|]{0,200}/gi, ' ')
+    .replace(/Documento gerado eletronicamente[^\|]{0,200}/gi, ' ')
+    .replace(/Portal de Compras Públicas em [\d\/]+ às [\d:]+\.?\s*/gi, ' ')
+    .replace(/portal de compras públicas[^\|]{0,100}/gi, ' ')
     .replace(/Código verificador:\s*\w+/gi, ' ')
     .replace(/Página \d+ de \d+/gi, ' ')
     .replace(/CREDENCIADOS DO PROCESSO/g, ' ')
@@ -2222,6 +2224,9 @@ async function parseTextFromPDF(text) {
     const areaAntes = t.slice(Math.max(0, lastPipe > 0 ? lastPipe - 250 : 0), lastPipe > 0 ? lastPipe : c.pos);
     let nome = areaAntes
       .replace(/TOTAL\s+DO\s+VENCEDOR\s+R\$[\d\s\.,]+/gi, '|||')
+      .replace(/Portal de Compras Públicas em [\d\/]+ às [\d:]+\.?\s*/gi, ' ')
+      .replace(/Documento gerado eletronicamente[^\|]{0,200}/gi, ' ')
+      .replace(/A autenticidade[^\|]{0,200}/gi, ' ')
       .replace(/R\$[\s\d\.,]+/g, ' ')
       .replace(/[\d\.,]+\s*(UND|Cons\.?|Exame|SV)\s*/gi, ' ')
       .replace(/\s{2,}/g, ' ');
@@ -2260,12 +2265,12 @@ async function parseTextFromPDF(text) {
     }
 
     d.itens.forEach(codPDF => {
-      // Busca o item pelo código — tenta com e sem zeros à esquerda
-      const item = itens.find(i =>
-        i.cod === codPDF ||
-        i.cod === codPDF.replace(/^0+/, '') ||
-        i.cod.padStart(4, '0') === codPDF
-      );
+      // Normaliza: remove zeros à esquerda para comparação
+      const codNorm = codPDF.replace(/^0+/, '') || '0';
+      const item = itens.find(i => {
+        const iNorm = i.cod.replace(/^0+/, '') || '0';
+        return i.cod === codPDF || iNorm === codNorm;
+      });
       if (item) {
         if (!item.empIds.includes(empProcesso.id)) {
           item.empIds.push(empProcesso.id);
@@ -2310,11 +2315,11 @@ async function parseTextFromPDF(text) {
       <div style="margin-top:12px;font-size:12px;color:var(--text2)">Verifique as abas <strong>Itens</strong>, <strong>Empresas</strong> e <strong>Vinculação</strong>.</div>
     </div>`;
 
+  await salvarProcesso(false);
   renderEmpresas();
   renderItens();
   renderEmpChipsAdd();
   updateMetrics();
-  await salvarProcesso(false);
 }
 
 
