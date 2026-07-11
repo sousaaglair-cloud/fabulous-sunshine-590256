@@ -3213,7 +3213,11 @@ let _logoAtualModal = '';
 let _logoSugeridaModal = '';
 
 function normalizarOrgaoKey(orgao) {
-  return (orgao || '').trim().toLowerCase();
+  return (orgao || '')
+    .trim()
+    .toLowerCase()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '') // remove acentos (Saúde -> saude)
+    .replace(/\s+/g, ' ');                              // colapsa espaços duplos/tabs
 }
 
 async function carregarBancoLogos() {
@@ -3251,12 +3255,12 @@ async function salvarLogoBanco(orgao, logoBase64) {
 function buscarLogoBanco(orgao) {
   if (!orgao) return null;
   const key = normalizarOrgaoKey(orgao);
-  // Busca exata primeiro, depois parcial (para variações de digitação do mesmo órgão)
+  if (!key) return null;
+  // Busca exata pelo nome normalizado do órgão (sem acento/maiúsculas/espaços extras).
+  // Evita "sugestão parcial" por prefixo, que confundia órgãos com nomes parecidos
+  // (ex: vários "Consórcio Público Intermunicipal de Saúde ...").
   const exato = _bancoLogos.find(l => l.orgao_key === key);
-  if (exato) return exato.logo;
-  const prefixo = key.slice(0, 10);
-  const encontrado = _bancoLogos.find(l => l.orgao_key.includes(prefixo) || key.includes(l.orgao_key.slice(0, 10)));
-  return encontrado ? encontrado.logo : null;
+  return exato ? exato.logo : null;
 }
 
 function setLogoPreview(base64) {
