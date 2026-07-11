@@ -5,7 +5,6 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Gestão de Credenciamento — Divisão de Quantitativos</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
   :root {
@@ -422,7 +421,7 @@
       <div class="header-divider"></div>
     </div>
     <button class="btn sm" id="btn-processos" onclick="goHome()">🏠 Processos</button>
-    <button class="btn sm" onclick="showTabDirect('importar')">⬆ Importar PDF</button>
+    <button class="btn sm" onclick="showTabDirect('importar')">⬆ Importar</button>
     <button class="btn sm" onclick="salvarProcesso(true)">💾 Salvar</button>
     <button class="btn success sm" onclick="exportExcel()">⬇ Excel</button>
   </div>
@@ -700,29 +699,6 @@
     </div>
 
     <div class="card">
-      <div class="card-title">Importar PDF — Portal de Compras Públicas</div>
-      <p style="font-size:13px;color:var(--text2);margin-bottom:14px">Suba o PDF com a relação de vencedores do processo. O sistema extrai automaticamente empresas e itens.</p>
-      <div class="upload-zone" id="drop-zone" onclick="document.getElementById('pdf-input').click()">
-        <div style="font-size:40px;margin-bottom:10px">&#128196;</div>
-        <div style="font-weight:500;margin-bottom:4px">Clique para selecionar ou arraste o PDF aqui</div>
-        <div style="font-size:12px;color:var(--text3)">Formato: Portal de Compras Públicas — Vencedores do Processo</div>
-        <input type="file" id="pdf-input" accept=".pdf" style="display:none" onchange="handlePDF(this)">
-      </div>
-      <div id="pdf-status" style="margin-top:14px"></div>
-      <div id="pdf-preview" style="margin-top:4px"></div>
-    </div>
-
-    <div class="card">
-      <div class="card-title">Importar via texto colado</div>
-      <p style="font-size:13px;color:var(--text2);margin-bottom:10px">Copie e cole o conteúdo do PDF diretamente:</p>
-      <textarea id="txt-import" style="width:100%;height:130px;font-size:12px;font-family:monospace;resize:vertical" placeholder="Cole aqui o texto extraído do documento..."></textarea>
-      <div style="margin-top:10px;display:flex;gap:8px">
-        <button class="btn primary" onclick="parsePastedText()">Processar texto</button>
-        <button class="btn" onclick="document.getElementById('txt-import').value=''">Limpar</button>
-      </div>
-    </div>
-
-    <div class="card">
       <div class="card-title">&#128202; Importar itens via Excel (.xlsx)</div>
       <p style="font-size:13px;color:var(--text2);margin-bottom:10px">
         Suba uma planilha Excel com os itens. O sistema reconhece automaticamente as colunas pelo cabeçalho.
@@ -812,8 +788,6 @@
 const SUPA_URL = 'https://mpgwgiajercrukuinnnt.supabase.co';
 const SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1wZ3dnaWFqZXJjcnVrdWlubm50Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI1MDM2NDYsImV4cCI6MjA5ODA3OTY0Nn0.CyWIkq98vCELYbMpQhJmO8Dpd5HWP4DvlRLNMBewnZY';
 const supa = supabase.createClient(SUPA_URL, SUPA_KEY);
-
-pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
 
 let itens = [];
 let empresas = [];
@@ -1615,7 +1589,7 @@ function desvincularTodos() {
   salvarProcesso(false);
 }
 
-// stub mantido por compatibilidade com parseTextFromPDF que chama renderEmpChipsAdd
+// stub mantido por compatibilidade com as importações que chamam renderEmpChipsAdd
 function renderEmpChipsAdd() {}
 
 // ---- ITENS ----
@@ -2269,157 +2243,6 @@ function exportExcel() {
   XLSX.writeFile(wb, 'Credenciamento_Divisao_Quantitativos.xlsx');
 }
 
-// ---- IMPORT PDF ----
-async function handlePDF(input) {
-  const file = input.files[0];
-  if (!file) return;
-  const status = document.getElementById('pdf-status');
-  status.innerHTML = '<div class="alert info">&#128196; Lendo PDF, aguarde...</div>';
-  try {
-    const ab = await file.arrayBuffer();
-    const pdf = await pdfjsLib.getDocument({ data: ab }).promise;
-    let fullText = '';
-    for (let i = 1; i <= pdf.numPages; i++) {
-      const page = await pdf.getPage(i);
-      const tc = await page.getTextContent();
-      fullText += tc.items.map(t => t.str).join(' ') + '\n';
-    }
-    status.innerHTML = `<div class="alert ok">&#10003; PDF lido com sucesso (${pdf.numPages} página(s)). Processando...</div>`;
-    parseTextFromPDF(fullText);
-  } catch (e) {
-    status.innerHTML = `<div class="alert warn">&#10007; Erro ao ler PDF: ${e.message}. Tente colar o texto na caixa abaixo.</div>`;
-  }
-}
-
-async function parseTextFromPDF(text) {
-  const linhasBruto = text.split(/\n+/).map(l => l.trim()).filter(Boolean);
-  const cnpjRe = /(\d{2}\.\d{3}\.\d{3}\/\d{4}-\d{2})/;
-
-  // Junta linhas de cabeçalho de empresa quebradas em múltiplas linhas
-  const lines = [];
-  for (let i = 0; i < linhasBruto.length; i++) {
-    const l = linhasBruto[i];
-    if (/^(Endereço:|CEP:|UF:|Município:|Telefone:)/i.test(l) && lines.length > 0) {
-      lines[lines.length - 1] += ' ' + l;
-    } else {
-      lines.push(l);
-    }
-  }
-
-  let empAtual = null;
-  let novEmpresas = [];
-  let vinculacoes = {}; // cod -> [empIds]
-
-  lines.forEach(line => {
-    // Detectar linha de empresa (tem CNPJ e nome longo)
-    const cnpjMatch = line.match(cnpjRe);
-    if (cnpjMatch && line.length > 30) {
-      // Tenta extrair nome antes do | ou antes do CNPJ
-      const nomeMatch = line.match(/^([A-ZÁÉÍÓÚÃÕÂÊÎÔÛÀÈÌÒÙÇ\w][^\|]+?)\s*[\|,]\s*(?:Tipo:|Documento)/i)
-        || line.match(/^([A-ZÁÉÍÓÚÃÕÂÊÎÔÛÀÈÌÒÙÇ].+?)\s*\|/);
-      if (nomeMatch) {
-        const telMatch = line.match(/Telefone[:\s]+(\([\d ]+\)[\s\d\-]+)/i);
-        empAtual = {
-          nome: nomeMatch[1].trim(),
-          cnpj: cnpjMatch[1],
-          tel: telMatch ? telMatch[1].trim() : '',
-          _items: []
-        };
-        novEmpresas.push(empAtual);
-        return;
-      }
-    }
-
-    // Detectar linha de item: começa com código de 4 dígitos
-    const iMatch = line.match(/^(\d{4})\s+\S/);
-    if (iMatch && empAtual) {
-      const cod = iMatch[1];
-      const num = parseInt(cod);
-      // Filtra falsos positivos (anos, CEPs truncados, etc.)
-      if (num >= 1 && num <= 9999 && !line.match(/^\d{4}\s+\d/)) {
-        if (!empAtual._items.includes(cod)) {
-          empAtual._items.push(cod);
-        }
-      }
-    }
-  });
-
-  let addedEmp = 0, vinculados = 0, fracassados = [], naoEncontrados = [];
-
-  // Processa empresas
-  for (const ne of novEmpresas) {
-    // 1. Verifica se já está no processo
-    let empProcesso = empresas.find(e => e.cnpj === ne.cnpj && ne.cnpj);
-
-    // 2. Se não está, adiciona ao processo
-    if (!empProcesso) {
-      const id = 'e' + Date.now() + Math.random().toString(36).substr(2, 5);
-      empProcesso = { id, nome: ne.nome, cnpj: ne.cnpj };
-      empresas.push(empProcesso);
-      addedEmp++;
-
-      // Salva no banco global de empresas
-      salvarEmpresaBanco({ nome: ne.nome, cnpj: ne.cnpj, telefone: ne.tel }).catch(() => {});
-    }
-
-    ne._id = empProcesso.id;
-
-    // 3. Registra vinculações
-    ne._items.forEach(cod => {
-      if (!vinculacoes[cod]) vinculacoes[cod] = [];
-      if (!vinculacoes[cod].includes(ne._id)) vinculacoes[cod].push(ne._id);
-    });
-  }
-
-  // Aplica vinculações nos itens — mantém valores originais
-  Object.entries(vinculacoes).forEach(([cod, empIds]) => {
-    const item = itens.find(i => i.cod === cod);
-    if (item) {
-      empIds.forEach(id => { if (!item.empIds.includes(id)) { item.empIds.push(id); vinculados++; } });
-    } else {
-      naoEncontrados.push(cod);
-    }
-  });
-
-  // Marca itens sem nenhuma empresa como fracassado
-  itens.forEach(it => {
-    const temEmpresa = it.empIds && it.empIds.length > 0;
-    if (!temEmpresa) {
-      it.status = 'fracassado';
-      fracassados.push(it.cod);
-    } else {
-      if (it.status === 'fracassado') delete it.status;
-    }
-  });
-
-  // Monta relatório
-  const fracassadosHtml = fracassados.length
-    ? `<div style="margin-top:8px">&#9888; <strong>${fracassados.length}</strong> item(ns) <span style="color:var(--danger-text);font-weight:600">fracassado(s)</span> (sem empresa vinculada): ${fracassados.map(c => `<code>${c}</code>`).join(', ')}</div>`
-    : `<div style="margin-top:8px">&#10003; Nenhum item fracassado.</div>`;
-
-  const naoEncontradosHtml = naoEncontrados.length
-    ? `<div style="margin-top:6px;font-size:12px;color:var(--text3)">&#9432; Códigos do PDF não encontrados nos itens do processo: ${naoEncontrados.map(c => `<code>${c}</code>`).join(', ')}</div>`
-    : '';
-
-  document.getElementById('pdf-preview').innerHTML = `
-    <div class="card" style="border-color:var(--success-border)">
-      <div style="font-weight:600;color:var(--success-text);margin-bottom:10px">&#10003; Importação concluída</div>
-      <div style="font-size:13px;display:grid;gap:6px">
-        <div>&#127970; <strong>${addedEmp}</strong> empresa(s) adicionada(s) ao processo</div>
-        <div>&#9776; <strong>${vinculados}</strong> vinculação(ões) empresa↔item realizada(s)</div>
-        ${fracassadosHtml}
-        ${naoEncontradosHtml}
-      </div>
-      <div style="margin-top:12px;font-size:12px;color:var(--text2)">Verifique as abas <strong>Itens</strong>, <strong>Empresas</strong> e <strong>Vinculação</strong> para confirmar.</div>
-    </div>`;
-
-  renderEmpresas();
-  renderItens();
-  renderEmpChipsAdd();
-  updateMetrics();
-  await salvarProcesso(false);
-}
-
 // ---- IMPORTAÇÃO CSV RESULTADO PORTAL ----
 async function importarCSVResultado(input) {
   const file = input.files[0];
@@ -2521,13 +2344,6 @@ async function importarCSVResultado(input) {
   };
   // Lê como latin-1
   reader.readAsText(file, 'latin-1');
-}
-
-function parsePastedText() {
-  const text = document.getElementById('txt-import').value;
-  if (!text.trim()) { alert('Cole o texto primeiro.'); return; }
-  document.getElementById('pdf-status').innerHTML = '';
-  parseTextFromPDF(text);
 }
 
 // ---- IMPORT CSV ----
@@ -3168,20 +2984,6 @@ function exportarRelatorioExcel() {
   const nomeArq = (proc ? proc.numero.replace(/[\/\\\?\*\[\]:]/g,'_') : 'Relatorio');
   XLSX.writeFile(wb, nomeArq + '.xlsx');
 }
-
-// ---- DRAG & DROP ----
-const dz = document.getElementById('drop-zone');
-dz.addEventListener('dragover', e => { e.preventDefault(); dz.classList.add('drag'); });
-dz.addEventListener('dragleave', () => dz.classList.remove('drag'));
-dz.addEventListener('drop', e => {
-  e.preventDefault();
-  dz.classList.remove('drag');
-  const file = e.dataTransfer.files[0];
-  if (file && file.type === 'application/pdf') {
-    const fakeInput = { files: [file] };
-    handlePDF(fakeInput);
-  }
-});
 
 // ---- MODAL VINCULAR ITENS POR EMPRESA ----
 let _mveEmpId = null;
