@@ -586,7 +586,7 @@
         </div>
       </div>
       <div class="scroll-x">
-        <table><thead><tr><th style="width:32px"></th><th>#</th><th>Razão social</th><th>CNPJ</th><th>Itens vinculados</th><th>Valor total alocado</th><th></th></tr></thead>
+        <table><thead><tr><th style="width:32px"></th><th>#</th><th>Razão social</th><th>CNPJ</th><th>Situação</th><th>Itens vinculados</th><th>Valor total alocado</th><th></th></tr></thead>
         <tbody id="tbody-emp"></tbody></table>
       </div>
     </div>
@@ -1770,7 +1770,7 @@ function adicionarEmpresaAoProcesso(nome, cnpj) {
     alert('Empresa já está neste processo.'); return;
   }
   const id = 'e' + Date.now() + Math.random().toString(36).substr(2,5);
-  empresas.push({ id, nome, cnpj });
+  empresas.push({ id, nome, cnpj, situacao: 'habilitada' });
   renderEmpresas();
   updateMetrics();
   refreshVinculacaoSeAtiva();
@@ -2067,7 +2067,7 @@ function renderEmpresas() {
   document.getElementById('count-emp').textContent = empresas.length;
   const tbody = document.getElementById('tbody-emp');
   if (!empresas.length) {
-    tbody.innerHTML = `<tr><td colspan="7" class="empty">Nenhuma empresa cadastrada.</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="8" class="empty">Nenhuma empresa cadastrada.</td></tr>`;
     document.getElementById('btn-remover-sel').style.display = 'none';
     return;
   }
@@ -2080,6 +2080,7 @@ function renderEmpresas() {
       <td style="color:var(--text3)">${idx + 1}</td>
       <td style="font-weight:600">${e.nome}</td>
       <td style="font-size:12px;color:var(--text2)">${e.cnpj || '—'}</td>
+      <td>${badgeSituacaoEmpresa(e)}</td>
       <td style="color:var(--text2)">${itensCnt} item(s)</td>
       <td style="font-weight:600">${fmt(total)}</td>
       <td style="display:flex;gap:6px;align-items:center">
@@ -2088,6 +2089,45 @@ function renderEmpresas() {
       </td>
     </tr>`;
   }).join('');
+}
+
+// ---- SITUAÇÃO DA EMPRESA (habilitada / inabilitada / desclassificada) ----
+let _situacaoEmpId = null;
+
+function badgeSituacaoEmpresa(emp) {
+  const sit = emp.situacao || 'habilitada';
+  const map = {
+    habilitada:      { label: '✓ Habilitada',      bg: 'var(--success-bg)', color: 'var(--success-text)', border: 'var(--success-border)' },
+    inabilitada:     { label: '⚠ Inabilitada',      bg: 'var(--warn-bg)',    color: 'var(--warn-text)',    border: 'var(--warn-border)'    },
+    desclassificada: { label: '✕ Desclassificada',  bg: 'var(--danger-bg)', color: 'var(--danger-text)',  border: 'var(--danger-border)'  },
+  };
+  const c = map[sit] || map.habilitada;
+  return `<span onclick="abrirModalSituacao('${emp.id}')" title="Clique para alterar a situação" style="cursor:pointer;font-size:11px;padding:2px 8px;border-radius:20px;border:1px solid ${c.border};background:${c.bg};color:${c.color};font-weight:600;white-space:nowrap;display:inline-block">${c.label}</span>`;
+}
+
+function abrirModalSituacao(empId) {
+  const emp = empresas.find(e => e.id === empId);
+  if (!emp) return;
+  _situacaoEmpId = empId;
+  document.getElementById('sit-emp-nome').textContent = emp.nome;
+  document.getElementById('sit-emp-status').value = emp.situacao || 'habilitada';
+  document.getElementById('sit-emp-motivo').value = emp.motivoSituacao || '';
+  document.getElementById('modal-situacao-empresa').classList.remove('hidden');
+}
+
+function fecharModalSituacao() {
+  document.getElementById('modal-situacao-empresa').classList.add('hidden');
+  _situacaoEmpId = null;
+}
+
+function salvarSituacaoEmpresa() {
+  const emp = empresas.find(e => e.id === _situacaoEmpId);
+  if (!emp) return;
+  emp.situacao = document.getElementById('sit-emp-status').value;
+  emp.motivoSituacao = document.getElementById('sit-emp-motivo').value.trim();
+  fecharModalSituacao();
+  renderEmpresas();
+  salvarProcesso(false);
 }
 
 // ---- DIVISÃO ----
@@ -2754,8 +2794,15 @@ function renderRelatorio() {
     container.innerHTML = buildConsolidado();
   } else {
     const empId = sel.value;
-    const lista = empId ? empresas.filter(e => e.id === empId) : empresas;
-    container.innerHTML = lista.map(emp => buildEmpresaBlock(emp)).join('') + buildTotalGeral();
+    if (empId) {
+      const emp = empresas.find(e => e.id === empId);
+      container.innerHTML = (emp ? buildEmpresaBlock(emp) : '') + buildTotalGeral();
+    } else {
+      const habilitadas = empresas.filter(e => (e.situacao || 'habilitada') === 'habilitada');
+      container.innerHTML = habilitadas.map(emp => buildEmpresaBlock(emp)).join('')
+        + buildSecaoInabilitadas()
+        + buildTotalGeral();
+    }
   }
 }
 
@@ -2847,7 +2894,7 @@ function buildConsolidado() {
       <thead><tr><th>#</th><th>Empresa</th><th>CNPJ</th><th>Itens vinculados</th><th>Itens alocados</th><th>Valor alocado</th><th>% do total</th></tr></thead><tbody>`;
 
   let rankTotal = 0;
-  const empDados = empresas.map(emp => {
+  const empDados = empresas.filter(emp => (emp.situacao || 'habilitada') === 'habilitada').map(emp => {
     const iVinc = itens.filter(i => i.empIds.includes(emp.id)).length;
     let valEmp = 0; let iAloc = 0;
     itens.forEach(it => {
@@ -2877,6 +2924,9 @@ function buildConsolidado() {
   });
 
   html += `</tbody></table></div></div>`;
+
+  html += buildSecaoInabilitadas();
+
   // TOTAL GERAL apenas uma vez — no final do consolidado
   html += `<div class="card" style="border-color:var(--info-border);background:var(--info-bg)">
     <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px">
@@ -2943,7 +2993,7 @@ function buildEmpresaBlock(emp) {
     </div>
     <div class="rel-empresa-header">
       <div>
-        <div style="font-weight:700;font-size:14px">${emp.nome}</div>
+        <div style="font-weight:700;font-size:14px">${emp.nome} ${badgeSituacaoEmpresa(emp)}</div>
         <div style="font-size:12px;color:var(--text2);margin-top:2px">${emp.cnpj ? 'CNPJ: ' + emp.cnpj : ''}</div>
       </div>
       <div style="text-align:right">
@@ -2958,6 +3008,26 @@ function buildEmpresaBlock(emp) {
         <td colspan="6" style="font-weight:700">SUBTOTAL — ${emp.nome.split(' ').slice(0,3).join(' ')}</td>
         <td style="font-weight:700;color:var(--accent)">${fmt(totalEmp)}</td>
       </tr></tfoot>
+    </table></div>
+  </div>`;
+}
+
+function buildSecaoInabilitadas() {
+  const lista = empresas.filter(e => (e.situacao || 'habilitada') !== 'habilitada');
+  if (!lista.length) return '';
+  const rows = lista.map(e => `<tr>
+    <td style="font-weight:600">${e.nome}</td>
+    <td style="font-size:12px;color:var(--text2)">${e.cnpj || '—'}</td>
+    <td>${badgeSituacaoEmpresa(e)}</td>
+    <td style="font-size:12px;color:var(--text2)">${e.motivoSituacao ? e.motivoSituacao : '—'}</td>
+  </tr>`).join('');
+  return `<div class="card rel-section" style="border-color:var(--warn-border)">
+    <div style="font-weight:700;font-size:14px;margin-bottom:14px;display:flex;align-items:center;gap:8px;color:var(--warn-text)">
+      &#9888; Empresas inabilitadas / desclassificadas
+    </div>
+    <div class="scroll-x"><table class="rel-table">
+      <thead><tr><th>Empresa</th><th>CNPJ</th><th>Situação</th><th>Motivo</th></tr></thead>
+      <tbody>${rows}</tbody>
     </table></div>
   </div>`;
 }
@@ -3333,6 +3403,7 @@ function usarLogoSugerida() {
   bindModalDismiss('modal-nova-empresa', fecharModalEmpresa);
   bindModalDismiss('modal-banco-empresas', () => document.getElementById('modal-banco-empresas').classList.add('hidden'));
   bindModalDismiss('modal-vincular-empresa', fecharModalVincularEmpresa);
+  bindModalDismiss('modal-situacao-empresa', fecharModalSituacao);
 })();
 
 // Salvar com Ctrl+S
@@ -3414,6 +3485,34 @@ document.getElementById('rel-emp-select').addEventListener('change', renderRelat
       <span id="mve-contador" style="font-size:12px;color:var(--text2);margin-right:auto"></span>
       <button class="btn" onclick="fecharModalVincularEmpresa()">Cancelar</button>
       <button class="btn success" onclick="salvarVinculosEmpresa()">✓ Salvar vínculos</button>
+    </div>
+  </div>
+</div>
+<!-- MODAL SITUAÇÃO DA EMPRESA -->
+<div id="modal-situacao-empresa" class="modal-overlay hidden">
+  <div class="modal" style="max-width:460px">
+    <div class="modal-header">
+      <span style="font-weight:700;font-size:15px">Situação da empresa no processo</span>
+      <button class="modal-close" onclick="fecharModalSituacao()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div style="font-weight:600;font-size:14px;margin-bottom:16px" id="sit-emp-nome"></div>
+      <div class="field" style="margin-bottom:14px">
+        <label>Situação</label>
+        <select id="sit-emp-status" style="width:100%">
+          <option value="habilitada">✓ Habilitada</option>
+          <option value="inabilitada">⚠ Inabilitada</option>
+          <option value="desclassificada">✕ Desclassificada</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Motivo (opcional)</label>
+        <textarea id="sit-emp-motivo" style="width:100%;min-height:80px" placeholder="Ex: Não apresentou certidão de regularidade fiscal válida..."></textarea>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn" onclick="fecharModalSituacao()">Cancelar</button>
+      <button class="btn primary" onclick="salvarSituacaoEmpresa()">Salvar</button>
     </div>
   </div>
 </div>
