@@ -576,12 +576,17 @@
       </div>
     </div>
     <div class="card">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:8px">
         <div class="card-title" style="margin:0">Empresas neste processo (<span id="count-emp">0</span>)</div>
-        <button class="btn sm" onclick="abrirModalBancoEmpresas()" title="Gerenciar banco de empresas">&#128197; Banco de empresas</button>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
+          <button class="btn sm" onclick="toggleSelecionarTodas()" id="btn-sel-todas">☐ Selecionar todas</button>
+          <button class="btn danger sm" onclick="removerSelecionadas()" id="btn-remover-sel" style="display:none">&#10005; Remover selecionadas</button>
+          <button class="btn danger sm" onclick="removerTodasEmpresas()">&#10005; Apagar todas</button>
+          <button class="btn sm" onclick="abrirModalBancoEmpresas()" title="Gerenciar banco de empresas">&#128197; Banco de empresas</button>
+        </div>
       </div>
       <div class="scroll-x">
-        <table><thead><tr><th>#</th><th>Razão social</th><th>CNPJ</th><th>Itens vinculados</th><th>Valor total alocado</th><th></th></tr></thead>
+        <table><thead><tr><th style="width:32px"></th><th>#</th><th>Razão social</th><th>CNPJ</th><th>Itens vinculados</th><th>Valor total alocado</th><th></th></tr></thead>
         <tbody id="tbody-emp"></tbody></table>
       </div>
     </div>
@@ -680,6 +685,20 @@
 
   <!-- IMPORTAR -->
   <div id="tab-importar" class="section">
+    <div class="card" style="border-color:var(--success-border)">
+      <div class="card-title">&#127775; Importar CSV — Portal de Compras Públicas (Recomendado)</div>
+      <p style="font-size:13px;color:var(--text2);margin-bottom:14px">
+        No portal, acesse o processo → aba <strong>Vencedores</strong> → botão <strong>Exportar</strong> → salve o arquivo <code>.txt</code> ou <code>.csv</code>. Depois suba aqui — o sistema vincula tudo automaticamente.
+      </p>
+      <div class="upload-zone" id="drop-zone-csv" onclick="document.getElementById('csv-resultado-input').click()">
+        <div style="font-size:40px;margin-bottom:10px">&#128202;</div>
+        <div style="font-weight:500;margin-bottom:4px">Clique para selecionar o arquivo exportado do portal</div>
+        <div style="font-size:12px;color:var(--text3)">Formato: .txt ou .csv exportado do Portal de Compras Públicas</div>
+        <input type="file" id="csv-resultado-input" accept=".txt,.csv" style="display:none" onchange="importarCSVResultado(this)">
+      </div>
+      <div id="csv-preview" style="margin-top:12px"></div>
+    </div>
+
     <div class="card">
       <div class="card-title">Importar PDF — Portal de Compras Públicas</div>
       <p style="font-size:13px;color:var(--text2);margin-bottom:14px">Suba o PDF com a relação de vencedores do processo. O sistema extrai automaticamente empresas e itens.</p>
@@ -1990,6 +2009,53 @@ function removeEmpresa(id) {
   salvarProcesso(false);
 }
 
+function removerTodasEmpresas() {
+  if (!empresas.length) return;
+  if (!confirm(`Apagar todas as ${empresas.length} empresa(s)? Isso remove todas as vinculações.`)) return;
+  const ids = empresas.map(e => e.id);
+  empresas = [];
+  itens.forEach(i => { i.empIds = []; delete i.status; });
+  divisoes = {};
+  renderEmpresas();
+  renderItens();
+  updateMetrics();
+  refreshVinculacaoSeAtiva();
+  salvarProcesso(false);
+}
+
+function toggleSelecionarTodas() {
+  const checks = document.querySelectorAll('.emp-check');
+  const todasMarcadas = [...checks].every(c => c.checked);
+  checks.forEach(c => c.checked = !todasMarcadas);
+  atualizarBotaoRemoverSel();
+}
+
+function atualizarBotaoRemoverSel() {
+  const selecionadas = document.querySelectorAll('.emp-check:checked').length;
+  const btn = document.getElementById('btn-remover-sel');
+  const btnSel = document.getElementById('btn-sel-todas');
+  btn.style.display = selecionadas > 0 ? 'inline-flex' : 'none';
+  btn.textContent = `✕ Remover selecionadas (${selecionadas})`;
+  const total = document.querySelectorAll('.emp-check').length;
+  btnSel.textContent = selecionadas === total && total > 0 ? '☑ Desmarcar todas' : '☐ Selecionar todas';
+}
+
+function removerSelecionadas() {
+  const ids = [...document.querySelectorAll('.emp-check:checked')].map(c => c.dataset.id);
+  if (!ids.length) return;
+  if (!confirm(`Remover ${ids.length} empresa(s) selecionada(s)? Isso desvincula os itens associados.`)) return;
+  ids.forEach(id => {
+    empresas = empresas.filter(e => e.id !== id);
+    itens.forEach(i => { i.empIds = i.empIds.filter(x => x !== id); });
+    Object.keys(divisoes).forEach(cod => { if(divisoes[cod]) delete divisoes[cod][id]; });
+  });
+  renderEmpresas();
+  renderItens();
+  updateMetrics();
+  refreshVinculacaoSeAtiva();
+  salvarProcesso(false);
+}
+
 function refreshVinculacaoSeAtiva() {
   if (document.getElementById('tab-vinculacao').classList.contains('active')) {
     renderVinculacao();
@@ -2000,7 +2066,8 @@ function renderEmpresas() {
   document.getElementById('count-emp').textContent = empresas.length;
   const tbody = document.getElementById('tbody-emp');
   if (!empresas.length) {
-    tbody.innerHTML = `<tr><td colspan="6" class="empty">Nenhuma empresa cadastrada.</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="7" class="empty">Nenhuma empresa cadastrada.</td></tr>`;
+    document.getElementById('btn-remover-sel').style.display = 'none';
     return;
   }
   tbody.innerHTML = empresas.map((e, idx) => {
@@ -2008,6 +2075,7 @@ function renderEmpresas() {
     itens.forEach(it => { if (divisoes[it.cod] && divisoes[it.cod][e.id]) total += divisoes[it.cod][e.id] * it.vunit; });
     const itensCnt = itens.filter(i => i.empIds.includes(e.id)).length;
     return `<tr>
+      <td><input type="checkbox" class="emp-check" data-id="${e.id}" onchange="atualizarBotaoRemoverSel()" style="cursor:pointer;width:16px;height:16px"></td>
       <td style="color:var(--text3)">${idx + 1}</td>
       <td style="font-weight:600">${e.nome}</td>
       <td style="font-size:12px;color:var(--text2)">${e.cnpj || '—'}</td>
@@ -2183,145 +2251,236 @@ async function handlePDF(input) {
 }
 
 async function parseTextFromPDF(text) {
-  // ---- Limpeza de ruídos de cabeçalho/rodapé de página ----
-  let t = text
-    .replace(/A autenticidade do documento pode ser verificada[^\|]{0,200}/gi, ' ')
-    .replace(/Documento gerado eletronicamente[^\|]{0,200}/gi, ' ')
-    .replace(/Portal de Compras Públicas em [\d\/]+ às [\d:]+\.?\s*/gi, ' ')
-    .replace(/portal de compras públicas[^\|]{0,100}/gi, ' ')
-    .replace(/Código verificador:\s*\w+/gi, ' ')
-    .replace(/Página \d+ de \d+/gi, ' ')
-    .replace(/CREDENCIADOS DO PROCESSO/g, ' ')
-    .replace(/Código\s+Produto\s+Modelo\s+Marca\/Fabricante\s+Qtde\s+Valor\s+Unit[aá]rio\s+Valor\s+Total/gi, ' ')
-    .replace(/\s{2,}/g, ' ')
-    .trim();
+  const linhasBruto = text.split(/\n+/).map(l => l.trim()).filter(Boolean);
+  const cnpjRe = /(\d{2}\.\d{3}\.\d{3}\/\d{4}-\d{2})/;
 
-  // ---- Encontra todos os CNPJs pela âncora "Documento XX.XXX.XXX/XXXX-XX" ----
-  const cnpjRe = /Documento\s+(\d{2}\.\d{3}\.\d{3}\/\d{4}-\d{2})/g;
-  const cnpjsEncontrados = [];
-  let mc;
-  while ((mc = cnpjRe.exec(t)) !== null) {
-    cnpjsEncontrados.push({ cnpj: mc[1], pos: mc.index, fim: mc.index + mc[0].length });
+  // Junta linhas de cabeçalho de empresa quebradas em múltiplas linhas
+  const lines = [];
+  for (let i = 0; i < linhasBruto.length; i++) {
+    const l = linhasBruto[i];
+    if (/^(Endereço:|CEP:|UF:|Município:|Telefone:)/i.test(l) && lines.length > 0) {
+      lines[lines.length - 1] += ' ' + l;
+    } else {
+      lines.push(l);
+    }
   }
 
-  if (!cnpjsEncontrados.length) {
-    document.getElementById('pdf-preview').innerHTML = `
-      <div class="card" style="border-color:var(--danger-border)">
-        <div style="font-weight:600;color:var(--danger-text)">&#9888; Nenhuma empresa encontrada no PDF</div>
-        <div style="font-size:13px;margin-top:8px;color:var(--text2)">Verifique se o PDF é um relatório de credenciados do Portal de Compras Públicas.</div>
-      </div>`;
-    return;
-  }
+  let empAtual = null;
+  let novEmpresas = [];
+  let vinculacoes = {}; // cod -> [empIds]
 
-  // ---- Para cada CNPJ, extrai nome e itens ----
-  const dadosEmpresas = cnpjsEncontrados.map((c, i) => {
-    // Encontra o último pipe antes deste CNPJ
-    const searchArea = t.slice(0, c.pos);
-    const pipesAntes = [...searchArea.matchAll(/\|/g)];
-    const lastPipe = pipesAntes.length > 0 ? pipesAntes[pipesAntes.length - 1].index : -1;
-
-    // Extrai e limpa o nome
-    const areaAntes = t.slice(Math.max(0, lastPipe > 0 ? lastPipe - 250 : 0), lastPipe > 0 ? lastPipe : c.pos);
-    let nome = areaAntes
-      .replace(/TOTAL\s+DO\s+VENCEDOR\s+R\$[\d\s\.,]+/gi, '|||')
-      .replace(/Portal de Compras Públicas em [\d\/]+ às [\d:]+\.?\s*/gi, ' ')
-      .replace(/Documento gerado eletronicamente[^\|]{0,200}/gi, ' ')
-      .replace(/A autenticidade[^\|]{0,200}/gi, ' ')
-      .replace(/R\$[\s\d\.,]+/g, ' ')
-      .replace(/[\d\.,]+\s*(UND|Cons\.?|Exame|SV)\s*/gi, ' ')
-      .replace(/\s{2,}/g, ' ');
-    const partes = nome.split('|||');
-    nome = partes[partes.length - 1].trim();
-    nome = nome.replace(/^.*(Credenciamento\s*-\s*[\d\/]+\s*)/i, '').trim();
-    nome = nome.replace(/^[^A-ZÁÉÍÓÚÃÕÂÊÎÔÛÀÈÌÒÙÇ]*/u, '').trim();
-
-    // Itens: bloco entre fim do cabeçalho e início do próximo
-    const proximoPipe = i + 1 < cnpjsEncontrados.length
-      ? t.slice(0, cnpjsEncontrados[i + 1].pos).lastIndexOf('|')
-      : t.length;
-    let bloco = t.slice(c.fim, proximoPipe > c.fim ? proximoPipe : t.length);
-    bloco = bloco.replace(/TOTAL\s+DO\s+VENCEDOR.*/i, '');
-
-    // Códigos: 4 dígitos começando com 0, seguidos de letra maiúscula
-    const itemRe = /(?<![(\d\-])\b(0\d{3})\s+[A-ZÁÉÍÓÚÃÕÂÊÎÔÛÀÈÌÒÙÇ]/g;
-    const itensEncontrados = [...new Set([...bloco.matchAll(itemRe)].map(x => x[1]))];
-
-    return { nome, cnpj: c.cnpj, itens: itensEncontrados };
-  });
-
-  // ---- Aplica no processo ----
-  let addedEmp = 0, vinculados = 0, fracassados = [], naoEncontrados = [];
-
-  for (const d of dadosEmpresas) {
-    if (!d.nome || d.nome.length < 3) continue;
-
-    let empProcesso = empresas.find(e => e.cnpj === d.cnpj);
-    if (!empProcesso) {
-      const id = 'e' + Date.now() + Math.random().toString(36).substr(2, 5);
-      empProcesso = { id, nome: d.nome, cnpj: d.cnpj };
-      empresas.push(empProcesso);
-      addedEmp++;
-      salvarEmpresaBanco({ nome: d.nome, cnpj: d.cnpj }).catch(() => {});
+  lines.forEach(line => {
+    // Detectar linha de empresa (tem CNPJ e nome longo)
+    const cnpjMatch = line.match(cnpjRe);
+    if (cnpjMatch && line.length > 30) {
+      // Tenta extrair nome antes do | ou antes do CNPJ
+      const nomeMatch = line.match(/^([A-ZÁÉÍÓÚÃÕÂÊÎÔÛÀÈÌÒÙÇ\w][^\|]+?)\s*[\|,]\s*(?:Tipo:|Documento)/i)
+        || line.match(/^([A-ZÁÉÍÓÚÃÕÂÊÎÔÛÀÈÌÒÙÇ].+?)\s*\|/);
+      if (nomeMatch) {
+        const telMatch = line.match(/Telefone[:\s]+(\([\d ]+\)[\s\d\-]+)/i);
+        empAtual = {
+          nome: nomeMatch[1].trim(),
+          cnpj: cnpjMatch[1],
+          tel: telMatch ? telMatch[1].trim() : '',
+          _items: []
+        };
+        novEmpresas.push(empAtual);
+        return;
+      }
     }
 
-    d.itens.forEach(codPDF => {
-      // Normaliza: remove zeros à esquerda para comparação
-      const codNorm = codPDF.replace(/^0+/, '') || '0';
-      const item = itens.find(i => {
-        const iNorm = i.cod.replace(/^0+/, '') || '0';
-        return i.cod === codPDF || iNorm === codNorm;
-      });
-      if (item) {
-        if (!item.empIds.includes(empProcesso.id)) {
-          item.empIds.push(empProcesso.id);
-          vinculados++;
+    // Detectar linha de item: começa com código de 4 dígitos
+    const iMatch = line.match(/^(\d{4})\s+\S/);
+    if (iMatch && empAtual) {
+      const cod = iMatch[1];
+      const num = parseInt(cod);
+      // Filtra falsos positivos (anos, CEPs truncados, etc.)
+      if (num >= 1 && num <= 9999 && !line.match(/^\d{4}\s+\d/)) {
+        if (!empAtual._items.includes(cod)) {
+          empAtual._items.push(cod);
         }
-      } else {
-        if (!naoEncontrados.includes(codPDF)) naoEncontrados.push(codPDF);
       }
+    }
+  });
+
+  let addedEmp = 0, vinculados = 0, fracassados = [], naoEncontrados = [];
+
+  // Processa empresas
+  for (const ne of novEmpresas) {
+    // 1. Verifica se já está no processo
+    let empProcesso = empresas.find(e => e.cnpj === ne.cnpj && ne.cnpj);
+
+    // 2. Se não está, adiciona ao processo
+    if (!empProcesso) {
+      const id = 'e' + Date.now() + Math.random().toString(36).substr(2, 5);
+      empProcesso = { id, nome: ne.nome, cnpj: ne.cnpj };
+      empresas.push(empProcesso);
+      addedEmp++;
+
+      // Salva no banco global de empresas
+      salvarEmpresaBanco({ nome: ne.nome, cnpj: ne.cnpj, telefone: ne.tel }).catch(() => {});
+    }
+
+    ne._id = empProcesso.id;
+
+    // 3. Registra vinculações
+    ne._items.forEach(cod => {
+      if (!vinculacoes[cod]) vinculacoes[cod] = [];
+      if (!vinculacoes[cod].includes(ne._id)) vinculacoes[cod].push(ne._id);
     });
   }
 
-  // Marca fracassados: item sem nenhuma empresa vinculada após importação
-  itens.forEach(it => {
-    if (!it.empIds || it.empIds.length === 0) {
-      it.status = 'fracassado';
-      fracassados.push(it.cod);
-    } else if (it.status === 'fracassado') {
-      delete it.status;
+  // Aplica vinculações nos itens — mantém valores originais
+  Object.entries(vinculacoes).forEach(([cod, empIds]) => {
+    const item = itens.find(i => i.cod === cod);
+    if (item) {
+      empIds.forEach(id => { if (!item.empIds.includes(id)) { item.empIds.push(id); vinculados++; } });
+    } else {
+      naoEncontrados.push(cod);
     }
   });
 
+  // Marca itens sem nenhuma empresa como fracassado
+  itens.forEach(it => {
+    const temEmpresa = it.empIds && it.empIds.length > 0;
+    if (!temEmpresa) {
+      it.status = 'fracassado';
+      fracassados.push(it.cod);
+    } else {
+      if (it.status === 'fracassado') delete it.status;
+    }
+  });
+
+  // Monta relatório
   const fracassadosHtml = fracassados.length
-    ? `<div style="margin-top:8px">&#9888; <strong>${fracassados.length}</strong> item(ns) <span style="color:var(--danger-text);font-weight:600">fracassado(s)</span>: ${fracassados.map(c => `<code>${c}</code>`).join(', ')}</div>`
+    ? `<div style="margin-top:8px">&#9888; <strong>${fracassados.length}</strong> item(ns) <span style="color:var(--danger-text);font-weight:600">fracassado(s)</span> (sem empresa vinculada): ${fracassados.map(c => `<code>${c}</code>`).join(', ')}</div>`
     : `<div style="margin-top:8px">&#10003; Nenhum item fracassado.</div>`;
 
   const naoEncontradosHtml = naoEncontrados.length
-    ? `<div style="margin-top:6px;font-size:12px;color:var(--text3)">&#9432; Códigos do PDF não encontrados nos itens do processo: ${naoEncontrados.slice(0, 20).map(c => `<code>${c}</code>`).join(', ')}${naoEncontrados.length > 20 ? ` e mais ${naoEncontrados.length - 20}...` : ''}</div>`
+    ? `<div style="margin-top:6px;font-size:12px;color:var(--text3)">&#9432; Códigos do PDF não encontrados nos itens do processo: ${naoEncontrados.map(c => `<code>${c}</code>`).join(', ')}</div>`
     : '';
-
-  const empComLixo = dadosEmpresas.filter(d => d.nome.length < 3);
 
   document.getElementById('pdf-preview').innerHTML = `
     <div class="card" style="border-color:var(--success-border)">
       <div style="font-weight:600;color:var(--success-text);margin-bottom:10px">&#10003; Importação concluída</div>
       <div style="font-size:13px;display:grid;gap:6px">
-        <div>&#127970; <strong>${dadosEmpresas.length}</strong> empresa(s) identificada(s) no PDF</div>
-        <div>&#127970; <strong>${addedEmp}</strong> empresa(s) nova(s) adicionada(s) ao processo</div>
-        <div>&#9776; <strong>${vinculados}</strong> vinculação(ões) empresa&#8596;item realizada(s)</div>
+        <div>&#127970; <strong>${addedEmp}</strong> empresa(s) adicionada(s) ao processo</div>
+        <div>&#9776; <strong>${vinculados}</strong> vinculação(ões) empresa↔item realizada(s)</div>
         ${fracassadosHtml}
         ${naoEncontradosHtml}
       </div>
-      <div style="margin-top:12px;font-size:12px;color:var(--text2)">Verifique as abas <strong>Itens</strong>, <strong>Empresas</strong> e <strong>Vinculação</strong>.</div>
+      <div style="margin-top:12px;font-size:12px;color:var(--text2)">Verifique as abas <strong>Itens</strong>, <strong>Empresas</strong> e <strong>Vinculação</strong> para confirmar.</div>
     </div>`;
 
-  await salvarProcesso(false);
   renderEmpresas();
   renderItens();
   renderEmpChipsAdd();
   updateMetrics();
+  await salvarProcesso(false);
 }
 
+// ---- IMPORTAÇÃO CSV RESULTADO PORTAL ----
+async function importarCSVResultado(input) {
+  const file = input.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = async function(e) {
+    try {
+      // Detecta encoding latin-1 ou utf-8
+      const text = e.target.result;
+      const lines = text.split(/\r?\n/).filter(l => l.trim());
+
+      // Estrutura: cod;nº;desc;modelo;qtde;vunit;vtotal;cnpj;nome;...
+      const vinculacoes = {}; // cnpj -> { nome, itens: Set(cod) }
+
+      for (const line of lines) {
+        const cols = line.split(';');
+        if (cols.length < 9) continue;
+        const cod  = cols[0].trim().replace(/^0+/, '') || '0';
+        const cnpj = cols[7].trim();
+        const nome = cols[8].trim();
+        if (!cnpj || !nome || !cod) continue;
+        if (!vinculacoes[cnpj]) vinculacoes[cnpj] = { nome, itens: new Set() };
+        vinculacoes[cnpj].itens.add(cod);
+      }
+
+      let addedEmp = 0, vinculados = 0, fracassados = [], naoEncontrados = [];
+
+      for (const [cnpj, dados] of Object.entries(vinculacoes)) {
+        // Empresa: verifica se já existe no processo
+        let emp = empresas.find(e => e.cnpj === cnpj);
+        if (!emp) {
+          const id = 'e' + Date.now() + Math.random().toString(36).substr(2, 5);
+          emp = { id, nome: dados.nome, cnpj };
+          empresas.push(emp);
+          addedEmp++;
+          salvarEmpresaBanco({ nome: dados.nome, cnpj }).catch(() => {});
+        }
+
+        // Vincula itens
+        for (const codNorm of dados.itens) {
+          const item = itens.find(i => {
+            const iNorm = i.cod.replace(/^0+/, '') || '0';
+            return iNorm === codNorm || i.cod === codNorm;
+          });
+          if (item) {
+            if (!item.empIds.includes(emp.id)) {
+              item.empIds.push(emp.id);
+              vinculados++;
+            }
+          } else {
+            if (!naoEncontrados.includes(codNorm)) naoEncontrados.push(codNorm);
+          }
+        }
+      }
+
+      // Marca fracassados
+      itens.forEach(it => {
+        if (!it.empIds || it.empIds.length === 0) {
+          it.status = 'fracassado';
+          fracassados.push(it.cod);
+        } else if (it.status === 'fracassado') {
+          delete it.status;
+        }
+      });
+
+      const totalEmpresas = Object.keys(vinculacoes).length;
+      const fracassadosHtml = fracassados.length
+        ? `<div style="margin-top:8px">&#9888; <strong>${fracassados.length}</strong> item(ns) <span style="color:var(--danger-text);font-weight:600">fracassado(s)</span>: ${fracassados.map(c => `<code>${c}</code>`).join(', ')}</div>`
+        : `<div style="margin-top:8px">&#10003; Nenhum item fracassado.</div>`;
+      const naoEncontradosHtml = naoEncontrados.length
+        ? `<div style="margin-top:6px;font-size:12px;color:var(--text3)">&#9432; Códigos não encontrados nos itens do processo: ${naoEncontrados.slice(0,20).map(c => `<code>${c}</code>`).join(', ')}</div>`
+        : '';
+
+      document.getElementById('csv-preview').innerHTML = `
+        <div class="card" style="border-color:var(--success-border)">
+          <div style="font-weight:600;color:var(--success-text);margin-bottom:10px">&#10003; Importação concluída</div>
+          <div style="font-size:13px;display:grid;gap:6px">
+            <div>&#127970; <strong>${totalEmpresas}</strong> empresa(s) identificada(s) no arquivo</div>
+            <div>&#127970; <strong>${addedEmp}</strong> empresa(s) nova(s) adicionada(s) ao processo</div>
+            <div>&#9776; <strong>${vinculados}</strong> vinculação(ões) empresa&#8596;item realizada(s)</div>
+            ${fracassadosHtml}
+            ${naoEncontradosHtml}
+          </div>
+        </div>`;
+
+      await salvarProcesso(false);
+      renderEmpresas();
+      renderItens();
+      renderEmpChipsAdd();
+      updateMetrics();
+
+    } catch(err) {
+      document.getElementById('csv-preview').innerHTML = `
+        <div class="card" style="border-color:var(--danger-border)">
+          <div style="color:var(--danger-text);font-weight:600">&#9888; Erro ao importar: ${err.message}</div>
+        </div>`;
+    }
+    input.value = '';
+  };
+  // Lê como latin-1
+  reader.readAsText(file, 'latin-1');
+}
 
 function parsePastedText() {
   const text = document.getElementById('txt-import').value;
