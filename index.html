@@ -893,6 +893,7 @@ async function iniciarSessao() {
   document.getElementById('header-user-info').style.display = 'flex';
   await carregarProcessosDB();
   await carregarBancoEmpresas();
+  await carregarBancoLogos();
   document.getElementById('processo-home').style.display = 'block';
   document.getElementById('processo-home').classList.add('active');
   renderListaProcessos();
@@ -1016,7 +1017,7 @@ async function confirmarProcesso() {
   const orgao = document.getElementById('proc-orgao').value.trim();
   const municipio = document.getElementById('proc-municipio').value.trim();
   const logo = _logoAtualModal || '';
-  if (logo && orgao) salvarLogoBanco(orgao, logo);
+  if (logo && orgao) await salvarLogoBanco(orgao, logo);
   const objeto = document.getElementById('proc-objeto').value.trim();
   const dataAbertura = document.getElementById('proc-data-abertura').value;
   const status = document.getElementById('proc-status').value;
@@ -3206,30 +3207,56 @@ function salvarVinculosEmpresa() {
   fecharModalVincularEmpresa();
 }
 
-// ---- BANCO DE LOGOS ----
-const LOGO_BANCO_KEY = 'credenciagest_logos';
+// ---- BANCO DE LOGOS (Supabase — compartilhado entre processos, sessões e usuários) ----
+let _bancoLogos = []; // cache local do banco global carregado do Supabase
 let _logoAtualModal = '';
 let _logoSugeridaModal = '';
 
-function getBancoLogos() {
-  try { return JSON.parse(localStorage.getItem(LOGO_BANCO_KEY) || '{}'); } catch { return {}; }
+function normalizarOrgaoKey(orgao) {
+  return (orgao || '').trim().toLowerCase();
 }
 
-function salvarLogoBanco(orgao, logoBase64) {
-  const banco = getBancoLogos();
-  const key = orgao.trim().toLowerCase();
-  banco[key] = { orgao: orgao.trim(), logo: logoBase64, atualizado: new Date().toISOString() };
-  localStorage.setItem(LOGO_BANCO_KEY, JSON.stringify(banco));
+async function carregarBancoLogos() {
+  const { data, error } = await supa.from('banco_logos').select('*');
+  if (error) { console.error('Erro ao carregar banco de logos:', error); return; }
+  _bancoLogos = data || [];
+}
+
+async function salvarLogoBanco(orgao, logoBase64) {
+  const orgaoKey = normalizarOrgaoKey(orgao);
+  if (!orgaoKey || !logoBase64) return null;
+  // Evita gravações repetidas se o logo já é o mesmo salvo para este órgão
+  const existente = _bancoLogos.find(l => l.orgao_key === orgaoKey);
+  if (existente && existente.logo === logoBase64) return existente;
+
+  const payload = {
+    orgao_key: orgaoKey,
+    orgao: orgao.trim(),
+    logo: logoBase64,
+    atualizado_em: new Date().toISOString(),
+    criado_por: _usuarioAtual ? _usuarioAtual.id : null
+  };
+  const { data, error } = await supa
+    .from('banco_logos')
+    .upsert(payload, { onConflict: 'orgao_key' })
+    .select()
+    .single();
+  if (error) { console.error('Erro ao salvar logo no banco:', error); return null; }
+
+  const idx = _bancoLogos.findIndex(l => l.orgao_key === orgaoKey);
+  if (idx >= 0) _bancoLogos[idx] = data; else _bancoLogos.push(data);
+  return data;
 }
 
 function buscarLogoBanco(orgao) {
   if (!orgao) return null;
-  const banco = getBancoLogos();
-  const key = orgao.trim().toLowerCase();
-  // Busca exata primeiro, depois parcial
-  if (banco[key]) return banco[key].logo;
-  const found = Object.keys(banco).find(k => k.includes(orgao.trim().toLowerCase().slice(0,10)) || orgao.trim().toLowerCase().includes(k.slice(0,10)));
-  return found ? banco[found].logo : null;
+  const key = normalizarOrgaoKey(orgao);
+  // Busca exata primeiro, depois parcial (para variações de digitação do mesmo órgão)
+  const exato = _bancoLogos.find(l => l.orgao_key === key);
+  if (exato) return exato.logo;
+  const prefixo = key.slice(0, 10);
+  const encontrado = _bancoLogos.find(l => l.orgao_key.includes(prefixo) || key.includes(l.orgao_key.slice(0, 10)));
+  return encontrado ? encontrado.logo : null;
 }
 
 function setLogoPreview(base64) {
