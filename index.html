@@ -391,7 +391,12 @@
       </div>
       <div class="login-field">
         <label>Senha</label>
-        <input type="password" id="login-senha" placeholder="••••••••" autocomplete="off" readonly onfocus="this.removeAttribute('readonly')">
+        <div style="position:relative">
+          <input type="password" id="login-senha" placeholder="••••••••" autocomplete="off" readonly onfocus="this.removeAttribute('readonly')" style="width:100%;padding-right:42px">
+          <button type="button" id="btn-toggle-senha" onclick="toggleSenhaVisivel()" tabindex="-1"
+            style="position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;font-size:16px;color:var(--text3);padding:4px;line-height:1"
+            title="Mostrar senha">👁</button>
+        </div>
       </div>
       <button class="login-btn" id="login-btn" onclick="fazerLogin()">Entrar</button>
       <div style="text-align:center;margin-top:14px;font-size:12px">
@@ -814,6 +819,21 @@ function setLoginLoading(loading) {
     ? '<span class="login-spinner"></span>Entrando...'
     : 'Entrar';
 }
+
+function toggleSenhaVisivel() {
+  const input = document.getElementById('login-senha');
+  const btn = document.getElementById('btn-toggle-senha');
+  if (input.type === 'password') {
+    input.type = 'text';
+    btn.textContent = '🙈';
+    btn.title = 'Ocultar senha';
+  } else {
+    input.type = 'password';
+    btn.textContent = '👁';
+    btn.title = 'Mostrar senha';
+  }
+}
+
 
 async function fazerLogin() {
   const email = document.getElementById('login-email').value.trim();
@@ -3276,12 +3296,19 @@ document.getElementById('rel-emp-select').addEventListener('change', renderRelat
 
   const { data: { session } } = await supa.auth.getSession();
   if (session && session.user) {
-    // Só loga automaticamente se NÃO estiver na tela de login visível
-    // (evita login automático indesejado por autocomplete ou sessão residual)
-    _usuarioAtual = session.user;
-    await iniciarSessao();
+    // Só loga automaticamente se a tela de login NÃO estiver visível
+    // (evita login automático por autocomplete ou sessão residual)
+    const loginScreen = document.getElementById('login-screen');
+    const loginVisible = !loginScreen.classList.contains('hidden');
+    if (!loginVisible) {
+      _usuarioAtual = session.user;
+      await iniciarSessao();
+    } else {
+      // Login screen está visível — aguarda clique do usuário
+      setTimeout(() => { document.getElementById('login-email').focus(); }, 100);
+    }
   } else {
-    // Garante que a tela de login está visível e limpa
+    // Sem sessão — exibe tela de login
     document.getElementById('login-screen').classList.remove('hidden');
     setTimeout(() => { document.getElementById('login-email').focus(); }, 100);
   }
