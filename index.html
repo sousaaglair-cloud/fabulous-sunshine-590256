@@ -310,15 +310,9 @@
     header,#proc-banner,.tabs,.header-actions,#rel-toolbar,#metrics-bar,.tab,
     #processo-home,.modal-overlay { display:none!important; }
     #app-main { display:block!important;padding:0; }
-    /* Esconder TODAS as abas */
-    .section,
-    #tab-itens,
-    #tab-empresas,
-    #tab-vinculacao,
-    #tab-divisao,
-    #tab-importar { display:none!important; }
-    /* Mostrar APENAS o relatório */
-    #tab-relatorio { display:block!important; }
+    /* Esconder todas as abas inativas — a ativa já tem display:block pelo JS */
+    .section { display:none!important; }
+    .section.active { display:block!important; }
     .main { padding:0!important;max-width:100%!important; }
     .card {
       border:1px solid #ccc!important;
@@ -2921,9 +2915,13 @@ function buildTotalGeral() {
 
 function imprimirRelatorio() {
   renderRelatorio();
-  // Garante que a aba relatório está visível para impressão
+  // Garante que a aba relatório está ativa antes de imprimir
   document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
   document.getElementById('tab-relatorio').classList.add('active');
+  // Atualiza também o estado visual das tabs
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  const tabBtn = document.querySelector('.tab[onclick*="relatorio"]');
+  if (tabBtn) tabBtn.classList.add('active');
   setTimeout(() => window.print(), 150);
 }
 
