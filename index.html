@@ -2146,10 +2146,29 @@ function fecharModalSituacao() {
 function salvarSituacaoEmpresa() {
   const emp = empresas.find(e => e.id === _situacaoEmpId);
   if (!emp) return;
-  emp.situacao = document.getElementById('sit-emp-status').value;
+  const novaSit = document.getElementById('sit-emp-status').value;
+  const sitAnterior = emp.situacao || 'habilitada';
+  emp.situacao = novaSit;
   emp.motivoSituacao = document.getElementById('sit-emp-motivo').value.trim();
+
+  // Se passou para inabilitada ou desclassificada → zerar quantidades alocadas em todos os itens
+  if ((novaSit === 'inabilitada' || novaSit === 'desclassificada') && sitAnterior === 'habilitada') {
+    let itensZerados = 0;
+    itens.forEach(it => {
+      if (divisoes[it.cod] && divisoes[it.cod][emp.id] !== undefined) {
+        if (divisoes[it.cod][emp.id] > 0) itensZerados++;
+        divisoes[it.cod][emp.id] = 0;
+      }
+    });
+    if (itensZerados > 0) {
+      setTimeout(() => alert(`✓ Quantidades zeradas em ${itensZerados} item(s) vinculado(s) a ${emp.nome}.\n\nA empresa permanece vinculada para constar no processo.`), 100);
+    }
+  }
+
   fecharModalSituacao();
   renderEmpresas();
+  renderDivisao();
+  updateMetrics();
   salvarProcesso(false);
 }
 
@@ -2172,11 +2191,18 @@ function renderDivisao() {
       const qtdE = divisoes[it.cod][e.id] || 0;
       const pct = it.qtde > 0 ? Math.min(100, qtdE / it.qtde * 100) : 0;
       const vEmp = qtdE * it.vunit;
-      return `<div class="division-row">
-        <div class="emp-name-short" title="${e.nome}">${e.nome.split(' ').slice(0,4).join(' ')}</div>
-        <div class="progress-bar"><div class="progress-fill" style="width:${pct.toFixed(1)}%"></div></div>
+      const inativa = e.situacao === 'inabilitada' || e.situacao === 'desclassificada';
+      const badgeSit = inativa ? `<span style="font-size:10px;padding:1px 6px;border-radius:10px;font-weight:600;background:${e.situacao==='inabilitada'?'var(--warn-bg)':'var(--danger-bg)'};color:${e.situacao==='inabilitada'?'var(--warn-text)':'var(--danger-text)'};border:1px solid ${e.situacao==='inabilitada'?'var(--warn-border)':'var(--danger-border)'};">${e.situacao==='inabilitada'?'Inabilitada':'Desclassificada'}</span>` : '';
+      return `<div class="division-row" style="${inativa ? 'opacity:0.55' : ''}">
+        <div class="emp-name-short" title="${e.nome}" style="display:flex;flex-direction:column;gap:2px">
+          <span>${e.nome.split(' ').slice(0,4).join(' ')}</span>
+          ${badgeSit}
+        </div>
+        <div class="progress-bar"><div class="progress-fill" style="width:${pct.toFixed(1)}%;background:${inativa?'var(--text3)':''}"></div></div>
         <span style="font-size:11px;color:var(--text2);width:42px;text-align:right">${pct.toFixed(0)}%</span>
-        <input type="number" min="0" max="${it.qtde * 2}" step="1" value="${qtdE}" style="width:90px" onchange="setDivisao('${it.cod}','${e.id}',this.value)" oninput="setDivisao('${it.cod}','${e.id}',this.value)">
+        <input type="number" min="0" max="${it.qtde * 2}" step="1" value="${qtdE}"
+          style="width:90px;${inativa?'background:var(--bg2);color:var(--text3);cursor:not-allowed;':''}"
+          ${inativa ? 'disabled title="Empresa inabilitada/desclassificada"' : `onchange="setDivisao('${it.cod}','${e.id}',this.value)" oninput="setDivisao('${it.cod}','${e.id}',this.value)"`}>
         <div style="width:120px;font-size:12px;color:var(--text2);text-align:right">${fmt(vEmp)}</div>
       </div>`;
     }).join('') : '<p style="font-size:13px;color:var(--text3);padding:8px 0">Nenhuma empresa vinculada a este item. Edite o item na aba Itens.</p>';
