@@ -486,6 +486,16 @@
                 </select>
               </div>
             </div>
+            <div class="field">
+              <label>Tipo de julgamento</label>
+              <select id="proc-tipo-julgamento" style="width:100%" onchange="atualizarDescricaoTipo()">
+                <option value="item">Inciso I — Julgamento por Item</option>
+                <option value="lote">Inciso I — Julgamento por Lote</option>
+                <option value="item_ii">Inciso II — Por Item (sem divisão)</option>
+                <option value="lote_ii">Inciso II — Por Lote (sem divisão)</option>
+              </select>
+              <div id="proc-tipo-desc" style="font-size:11px;color:var(--text3);margin-top:4px;line-height:1.5"></div>
+            </div>
             <div class="field"><label>Observações</label><textarea id="proc-obs" style="width:100%;height:60px;resize:vertical" placeholder="Anotações gerais sobre o processo..."></textarea></div>
           </div>
         </div>
@@ -917,6 +927,7 @@ function localToDB(p) {
     orgao: p.orgao || '',
     municipio: p.municipio || '',
     logo: p.logo || '',
+    tipo_julgamento: p.tipoJulgamento || 'item',
     objeto: p.objeto || '',
     status: p.status || 'em_andamento',
     obs: p.obs || '',
@@ -924,6 +935,7 @@ function localToDB(p) {
     itens: p.itens || [],
     empresas: p.empresas || [],
     divisoes: p.divisoes || {},
+    lotes: p.lotes || [],
     criado_em: p.criadoEm || new Date().toISOString(),
     atualizado_em: p.atualizadoEm || new Date().toISOString(),
     user_id: _usuarioAtual ? _usuarioAtual.id : null
@@ -937,6 +949,7 @@ function dbToLocal(d) {
     orgao: d.orgao || '',
     municipio: d.municipio || '',
     logo: d.logo || '',
+    tipoJulgamento: d.tipo_julgamento || 'item',
     objeto: d.objeto || '',
     status: d.status || 'em_andamento',
     obs: d.obs || '',
@@ -944,6 +957,7 @@ function dbToLocal(d) {
     itens: d.itens || [],
     empresas: d.empresas || [],
     divisoes: d.divisoes || {},
+    lotes: d.lotes || [],
     criadoEm: d.criado_em,
     atualizadoEm: d.atualizado_em
   };
@@ -991,6 +1005,8 @@ function abrirModalNovoProcesso(id) {
     document.getElementById('proc-municipio').value = p.municipio || '';
     setLogoPreview(p.logo || '');
     _logoAtualModal = p.logo || '';
+    document.getElementById('proc-tipo-julgamento').value = p.tipoJulgamento || 'item';
+    atualizarDescricaoTipo();
     document.getElementById('proc-objeto').value = p.objeto || '';
     document.getElementById('proc-data-abertura').value = p.dataAbertura || '';
     document.getElementById('proc-status').value = p.status || 'em_andamento';
@@ -999,6 +1015,8 @@ function abrirModalNovoProcesso(id) {
   } else {
     ['proc-numero','proc-orgao','proc-municipio','proc-obs'].forEach(x => document.getElementById(x).value = '');
     setLogoPreview(''); _logoAtualModal = '';
+    document.getElementById('proc-tipo-julgamento').value = 'item';
+    atualizarDescricaoTipo();
     document.getElementById('proc-objeto').value = '';
     document.getElementById('proc-data-abertura').value = '';
     document.getElementById('proc-status').value = 'em_andamento';
@@ -1032,7 +1050,7 @@ async function confirmarProcesso() {
   if (editId) {
     const idx = lista.findIndex(p => p.id === editId);
     if (idx >= 0) {
-      lista[idx] = { ...lista[idx], numero, orgao, municipio, logo, objeto, dataAbertura, status, obs, atualizadoEm: new Date().toISOString() };
+      lista[idx] = { ...lista[idx], numero, orgao, municipio, logo, tipoJulgamento, objeto, dataAbertura, status, obs, atualizadoEm: new Date().toISOString() };
       await atualizarProcessoDB(lista[idx]);
       _processosCache = lista;
       if (processoAtivo && processoAtivo.id === editId) {
@@ -1043,7 +1061,8 @@ async function confirmarProcesso() {
   } else {
     const novo = {
       id: 'p' + Date.now(),
-      numero, orgao, municipio, logo, objeto, dataAbertura, status, obs,
+      numero, orgao, municipio, logo, tipoJulgamento, objeto, dataAbertura, status, obs,
+      lotes: [],
       criadoEm: new Date().toISOString(),
       atualizadoEm: new Date().toISOString(),
       itens: [], empresas: [], divisoes: {}
@@ -1073,6 +1092,7 @@ function abrirProcesso(id) {
   itens = JSON.parse(JSON.stringify(proc.itens || []));
   empresas = JSON.parse(JSON.stringify(proc.empresas || []));
   divisoes = JSON.parse(JSON.stringify(proc.divisoes || {}));
+  lotes = JSON.parse(JSON.stringify(proc.lotes || []));
 
   document.getElementById('processo-home').classList.remove('active');
   document.getElementById('processo-home').style.display = 'none';
@@ -1133,7 +1153,7 @@ function goHome() {
   if (processoAtivo) salvarProcesso(false);
   clearInterval(autoSaveTimer);
   processoAtivo = null;
-  itens = []; empresas = []; divisoes = {};
+  itens = []; empresas = []; divisoes = {}; lotes = [];
   document.getElementById('app-main').style.display = 'none';
   document.getElementById('processo-home').style.display = 'block';
   document.getElementById('processo-home').classList.add('active');
@@ -1158,7 +1178,7 @@ async function duplicarProcesso(id, e) {
   e.stopPropagation();
   const orig = _processosCache.find(p => p.id === id);
   if (!orig) return;
-  const novo = { ...JSON.parse(JSON.stringify(orig)), id: 'p' + Date.now(), numero: orig.numero + ' (cópia)', criadoEm: new Date().toISOString(), atualizadoEm: new Date().toISOString(), status: 'em_andamento', logo: orig.logo || '' };
+  const novo = { ...JSON.parse(JSON.stringify(orig)), id: 'p' + Date.now(), numero: orig.numero + ' (cópia)', criadoEm: new Date().toISOString(), atualizadoEm: new Date().toISOString(), status: 'em_andamento', logo: orig.logo || '', tipoJulgamento: orig.tipoJulgamento || 'item', lotes: JSON.parse(JSON.stringify(orig.lotes||[])) };
   try {
     const salvo = await inserirProcessoDB(novo);
     _processosCache.push(salvo || novo);
@@ -3158,6 +3178,98 @@ function salvarVinculosEmpresa() {
   fecharModalVincularEmpresa();
 }
 
+// ---- LOTES ----
+let lotes = [];
+
+function getTipoJulgamento() {
+  return processoAtivo ? (processoAtivo.tipoJulgamento || 'item') : 'item';
+}
+function isLote() { return getTipoJulgamento() === 'lote' || getTipoJulgamento() === 'lote_ii'; }
+function isDivisao() { return getTipoJulgamento() === 'item' || getTipoJulgamento() === 'lote'; }
+
+function atualizarDescricaoTipo() {
+  const el = document.getElementById('proc-tipo-desc');
+  if (!el) return;
+  const val = document.getElementById('proc-tipo-julgamento').value;
+  const desc = {
+    'item':    'Julgamento por item com divisão de quantitativos (Art. 79, I).',
+    'lote':    'Itens em lotes, empresa vinculada ao lote inteiro, com divisão de quantitativos (Art. 79, I).',
+    'item_ii': 'Por item sem divisão — seleção a critério do beneficiário (Art. 79, II).',
+    'lote_ii': 'Por lote sem divisão — seleção a critério do beneficiário (Art. 79, II).',
+  };
+  el.textContent = desc[val] || '';
+}
+
+function abrirModalNovoLote(loteId) {
+  const lote = loteId ? lotes.find(l => l.id === loteId) : null;
+  document.getElementById('modal-lote-title').textContent = lote ? 'Editar Lote' : 'Novo Lote';
+  document.getElementById('lote-edit-id').value = loteId || '';
+  document.getElementById('lote-nome').value = lote ? lote.nome : '';
+  document.getElementById('lote-descricao').value = lote ? (lote.descricao || '') : '';
+  document.getElementById('modal-lote').classList.remove('hidden');
+  setTimeout(() => document.getElementById('lote-nome').focus(), 100);
+}
+
+function fecharModalLote() {
+  document.getElementById('modal-lote').classList.add('hidden');
+}
+
+function salvarLote() {
+  const nome = document.getElementById('lote-nome').value.trim();
+  if (!nome) { alert('Informe o nome do lote.'); return; }
+  const id = document.getElementById('lote-edit-id').value;
+  const descricao = document.getElementById('lote-descricao').value.trim();
+  if (id) {
+    const l = lotes.find(l => l.id === id);
+    if (l) { l.nome = nome; l.descricao = descricao; }
+  } else {
+    lotes.push({ id: 'lote_' + Date.now(), nome, descricao, itens: [], empIds: [] });
+  }
+  fecharModalLote();
+  renderItens();
+  salvarProcesso(false);
+}
+
+function excluirLote(loteId) {
+  const lote = lotes.find(l => l.id === loteId);
+  if (!lote) return;
+  const nItens = itens.filter(it => it.loteId === loteId).length;
+  if (nItens && !confirm('O lote "' + lote.nome + '" tem ' + nItens + ' item(s). Excluir o lote desvinculará os itens (eles permanecem no processo). Confirmar?')) return;
+  itens.forEach(it => { if (it.loteId === loteId) it.loteId = null; });
+  lotes = lotes.filter(l => l.id !== loteId);
+  renderItens();
+  salvarProcesso(false);
+}
+
+function moverItemParaLote(itemCod, loteId) {
+  const it = itens.find(i => String(i.cod) === String(itemCod));
+  if (!it) return;
+  it.loteId = loteId || null;
+  if (loteId) {
+    const lote = lotes.find(l => l.id === loteId);
+    if (lote && lote.empIds && lote.empIds.length) {
+      lote.empIds.forEach(empId => { if (!it.empIds.includes(empId)) it.empIds.push(empId); });
+    }
+  }
+  renderItens();
+  salvarProcesso(false);
+}
+
+function vincularEmpresasAoLote(loteId, empIds) {
+  const lote = lotes.find(l => l.id === loteId);
+  if (!lote) return;
+  lote.empIds = [...empIds];
+  itens.filter(it => it.loteId === loteId).forEach(it => { it.empIds = [...empIds]; });
+  renderVinculacao();
+  updateMetrics();
+  salvarProcesso(false);
+}
+
+function getLoteValorTotal(loteId) {
+  return itens.filter(it => it.loteId === loteId).reduce((s, it) => s + it.qtde * it.vunit, 0);
+}
+
+
 // ---- BANCO DE LOGOS (Supabase — compartilhado entre processos, sessões e usuários) ----
 let _bancoLogos = []; // cache local do banco global carregado do Supabase
 let _logoAtualModal = '';
@@ -3560,4 +3672,14 @@ function toggleSenhaVisib(inputId, btn) {
 </script>
 
 </body>
-</html>
+</html>function renderItens() {
+  document.getElementById('count-itens').textContent = itens.length;
+  const tbody = document.getElementById('tbody-itens');
+
+  if (isLote()) {
+    renderItensPorLote(tbody);
+    return;
+  }
+
+  // Modo padrão (por item)
+
