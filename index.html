@@ -1102,6 +1102,7 @@ async function confirmarProcesso() {
   const municipio = document.getElementById('proc-municipio').value.trim();
   const logo = _logoAtualModal || '';
   if (logo && orgao) await salvarLogoBanco(orgao, logo);
+  const tipoJulgamento = document.getElementById('proc-tipo-julgamento').value;
   const objeto = document.getElementById('proc-objeto').value.trim();
   const dataAbertura = document.getElementById('proc-data-abertura').value;
   const status = document.getElementById('proc-status').value;
@@ -1121,6 +1122,9 @@ async function confirmarProcesso() {
       if (processoAtivo && processoAtivo.id === editId) {
         processoAtivo = lista[idx];
         atualizarBannerProcesso();
+        atualizarUILoteVisibility();
+        renderLoteSelect();
+        renderItens();
       }
     }
   } else {
