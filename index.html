@@ -427,9 +427,9 @@
       <div class="header-divider"></div>
     </div>
     <button class="btn sm" id="btn-processos" onclick="goHome()">🏠 Processos</button>
-    <button class="btn sm" onclick="showTabDirect('importar')">⬆ Importar</button>
-    <button class="btn sm" onclick="salvarProcesso(true)">💾 Salvar</button>
-    <button class="btn success sm" onclick="exportExcel()">⬇ Excel</button>
+    <button class="btn sm" id="btn-header-importar" style="display:none" onclick="showTabDirect('importar')">⬆ Importar</button>
+    <button class="btn sm" id="btn-header-salvar" style="display:none" onclick="salvarProcesso(true)">💾 Salvar</button>
+    <button class="btn success sm" id="btn-header-excel" style="display:none" onclick="exportExcel()">⬇ Excel</button>
   </div>
 </header>
 <div id="proc-banner" class="hidden">
@@ -786,6 +786,7 @@
       <div style="margin-top:8px;display:flex;gap:8px">
         <button class="btn sm" onclick="parseCSV()">Importar CSV</button>
         <button class="btn sm" onclick="document.getElementById('csv-import').value=''">Limpar</button>
+        <button class="btn sm" onclick="baixarModeloCSVTexto()">&#8681; Baixar modelo .csv</button>
       </div>
       <div id="csv-status" style="margin-top:8px"></div>
     </div>
@@ -950,6 +951,9 @@ async function fazerLogout() {
   document.getElementById('app-main').style.display = 'none';
   document.getElementById('processo-home').style.display = 'none';
   document.getElementById('processo-home').classList.remove('active');
+  document.getElementById('btn-header-importar').style.display = 'none';
+  document.getElementById('btn-header-salvar').style.display = 'none';
+  document.getElementById('btn-header-excel').style.display = 'none';
 }
 
 async function recuperarSenha() {
@@ -1166,6 +1170,9 @@ function abrirProcesso(id) {
   document.getElementById('processo-home').classList.remove('active');
   document.getElementById('processo-home').style.display = 'none';
   document.getElementById('app-main').style.display = 'block';
+  document.getElementById('btn-header-importar').style.display = '';
+  document.getElementById('btn-header-salvar').style.display = '';
+  document.getElementById('btn-header-excel').style.display = '';
 
   atualizarBannerProcesso();
   atualizarUILoteVisibility();
@@ -1231,6 +1238,9 @@ function goHome() {
   document.getElementById('processo-home').classList.add('active');
   document.getElementById('proc-banner').classList.add('hidden');
   document.getElementById('header-proc-name').style.display = 'none';
+  document.getElementById('btn-header-importar').style.display = 'none';
+  document.getElementById('btn-header-salvar').style.display = 'none';
+  document.getElementById('btn-header-excel').style.display = 'none';
   renderListaProcessos();
 }
 
@@ -2656,6 +2666,23 @@ function parseCSV() {
   renderItens();
   updateMetrics();
   salvarProcesso(false);
+}
+
+function baixarModeloCSVTexto() {
+  const linhas = [
+    '0001;CONSULTA OFTALMOLOGICA;1000;Cons;95,00',
+    '0002;ANGIOGRAFIA FLUORESCEINA;100;UND;400,00',
+    '0003;BIOMETRIA (MONOCULAR);300;UND;60,00',
+  ];
+  const blob = new Blob([linhas.join('\r\n')], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'modelo_itens_texto.csv';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
 }
 
 // ---- IMPORT ITENS EXCEL ----
