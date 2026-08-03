@@ -544,6 +544,7 @@
     <button class="tab" onclick="showTab(event,'empresas')">🏢 Empresas</button>
     <button class="tab" onclick="showTab(event,'vinculacao')">🔗 Vinculação</button>
     <button class="tab" onclick="showTab(event,'divisao')">⚖️ Divisão</button>
+    <button class="tab" onclick="showTab(event,'julgamento')">📜 Julgamento (Art. 79)</button>
     <button class="tab" onclick="showTab(event,'importar')">⬆ Importar</button>
     <button class="tab" onclick="showTab(event,'relatorio')">📊 Relatório</button>
   </div>
@@ -632,7 +633,7 @@
       <div style="display:flex;gap:8px;align-items:flex-end;margin-bottom:12px">
         <div class="field flex1" style="margin:0">
           <label>CNPJ</label>
-          <input id="ne-cnpj" placeholder="00.000.000/0001-00" style="width:100%" oninput="formatarCNPJ(this)" maxlength="18">
+          <input id="ne-cnpj" placeholder="00.000.000/0001-00 ou 12ABC345/0001-DE" style="width:100%" oninput="formatarCNPJ(this)" maxlength="18">
         </div>
         <button class="btn primary" onclick="consultarCNPJ()" id="btn-consultar-cnpj" style="white-space:nowrap">&#128269; Consultar Receita</button>
       </div>
@@ -712,6 +713,47 @@
       </div>
     </div>
     <div id="divisao-container"></div>
+  </div>
+
+  <!-- JULGAMENTO / ART. 79 -->
+  <div id="tab-julgamento" class="section">
+    <div class="card" style="margin-bottom:16px">
+      <div class="card-title" style="margin-bottom:2px">Modalidade deste processo</div>
+      <div style="font-size:12px;color:var(--text3);margin-bottom:12px">Definida no cadastro do processo, no campo "Tipo de julgamento".</div>
+      <div id="julg-modo-atual"></div>
+    </div>
+
+    <div class="card" style="margin-bottom:16px">
+      <div class="card-title">Enquadramento no Art. 79 da Lei nº 14.133/2021</div>
+      <div class="scroll-x">
+        <table>
+          <thead><tr><th>Modalidade no sistema</th><th>Dispositivo legal</th><th>Como funciona</th></tr></thead>
+          <tbody>
+            <tr><td><strong>Por Item</strong></td><td>Art. 79, I</td><td>Julgamento por item, com divisão de quantitativos entre as empresas credenciadas — contratação paralela e não excludente.</td></tr>
+            <tr><td><strong>Por Lote</strong></td><td>Art. 79, I</td><td>Itens agrupados em lotes; a empresa é vinculada ao lote inteiro, com divisão de quantitativos entre credenciadas.</td></tr>
+            <tr><td><strong>Por Item (sem divisão)</strong></td><td>Art. 79, II</td><td>Seleção do credenciado a critério do beneficiário direto da prestação, sem divisão prévia de quantitativos.</td></tr>
+            <tr><td><strong>Por Lote (sem divisão)</strong></td><td>Art. 79, II</td><td>Mesma lógica de seleção a critério do beneficiário, aplicada a lotes de itens.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Texto legal — Art. 79, Lei nº 14.133, de 1º de abril de 2021</div>
+      <div style="font-size:13px;line-height:1.7;color:var(--text2)">
+        <p><strong>Art. 79.</strong> O credenciamento poderá ser usado nas seguintes hipóteses de contratação:</p>
+        <p><strong>I</strong> — paralela e não excludente: caso em que é viável e vantajosa para a Administração a realização de contratações simultâneas em condições padronizadas;</p>
+        <p><strong>II</strong> — com seleção a critério de terceiros: caso em que a seleção do contratado está a cargo do beneficiário direto da prestação;</p>
+        <p><strong>III</strong> — em mercados fluidos: caso em que a flutuação constante do valor da prestação e das condições de contratação inviabiliza a seleção de agente por meio de processo de licitação.</p>
+        <p><strong>Parágrafo único.</strong> Os procedimentos de credenciamento serão definidos em regulamento, observadas as seguintes regras:</p>
+        <p><strong>I</strong> — a Administração deverá divulgar e manter à disposição do público, em sítio eletrônico oficial, edital de chamamento de interessados, de modo a permitir o cadastramento permanente de novos interessados;</p>
+        <p><strong>II</strong> — na hipótese do inciso I do caput deste artigo, quando o objeto não permitir a contratação imediata e simultânea de todos os credenciados, deverão ser adotados critérios objetivos de distribuição da demanda;</p>
+        <p><strong>III</strong> — o edital de chamamento de interessados deverá prever as condições padronizadas de contratação e, nas hipóteses dos incisos I e II do caput deste artigo, deverá definir o valor da contratação;</p>
+        <p><strong>IV</strong> — na hipótese do inciso III do caput deste artigo, a Administração deverá registrar as cotações de mercado vigentes no momento da contratação;</p>
+        <p><strong>V</strong> — não será permitido o cometimento a terceiros do objeto contratado sem autorização expressa da Administração;</p>
+        <p><strong>VI</strong> — será admitida a denúncia por qualquer das partes nos prazos fixados no edital.</p>
+      </div>
+    </div>
   </div>
 
   <!-- IMPORTAR -->
@@ -1496,6 +1538,7 @@ function showTab(e, t) {
   if (t === 'divisao') renderDivisao();
   if (t === 'vinculacao') renderVinculacao();
   if (t === 'relatorio') renderRelatorio();
+  if (t === 'julgamento') renderJulgamento();
 }
 
 function showTabDirect(t) {
@@ -2009,11 +2052,14 @@ function fecharModalEmpresa() {
 }
 
 function formatarCNPJ(input) {
-  let v = input.value.replace(/\D/g, '').slice(0, 14);
-  if (v.length > 12) v = v.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{0,2})/, '$1.$2.$3/$4-$5');
-  else if (v.length > 8) v = v.replace(/^(\d{2})(\d{3})(\d{3})(\d{0,4})/, '$1.$2.$3/$4');
-  else if (v.length > 5) v = v.replace(/^(\d{2})(\d{3})(\d{0,3})/, '$1.$2.$3');
-  else if (v.length > 2) v = v.replace(/^(\d{2})(\d{0,3})/, '$1.$2');
+  // Aceita dígitos e letras: desde jul/2026 a Receita Federal emite CNPJ alfanumérico
+  // (12 posições alfanuméricas + 2 dígitos verificadores numéricos — IN RFB nº 2.229/2024).
+  // O CNPJ numérico tradicional continua funcionando normalmente.
+  let v = input.value.toUpperCase().replace(/[^0-9A-Z]/g, '').slice(0, 14);
+  if (v.length > 12) v = v.replace(/^(.{2})(.{3})(.{3})(.{4})(.{0,2})/, '$1.$2.$3/$4-$5');
+  else if (v.length > 8) v = v.replace(/^(.{2})(.{3})(.{3})(.{0,4})/, '$1.$2.$3/$4');
+  else if (v.length > 5) v = v.replace(/^(.{2})(.{3})(.{0,3})/, '$1.$2.$3');
+  else if (v.length > 2) v = v.replace(/^(.{2})(.{0,3})/, '$1.$2');
   input.value = v;
   // Limpa dados anteriores ao digitar novo CNPJ
   document.getElementById('ne-dados-receita').style.display = 'none';
@@ -2024,7 +2070,7 @@ function formatarCNPJ(input) {
 let _dadosReceita = null;
 
 async function consultarCNPJ() {
-  const cnpj = document.getElementById('ne-cnpj').value.replace(/\D/g, '');
+  const cnpj = document.getElementById('ne-cnpj').value.toUpperCase().replace(/[^0-9A-Z]/g, '');
   const status = document.getElementById('ne-cnpj-status');
   const btn = document.getElementById('btn-consultar-cnpj');
 
@@ -3360,6 +3406,26 @@ function atualizarDescricaoTipo() {
     'lote_ii': 'Por lote sem divisão — seleção a critério do beneficiário (Art. 79, II).',
   };
   el.textContent = desc[val] || '';
+}
+
+// Preenche a aba "Julgamento (Art. 79)" com a modalidade do processo ativo
+function renderJulgamento() {
+  const el = document.getElementById('julg-modo-atual');
+  if (!el) return;
+  if (!processoAtivo) { el.innerHTML = '<div class="empty">Nenhum processo selecionado.</div>'; return; }
+  const labels = {
+    'item':    { nome: 'Inciso I — Julgamento por Item', dispositivo: 'Art. 79, I' },
+    'lote':    { nome: 'Inciso I — Julgamento por Lote', dispositivo: 'Art. 79, I' },
+    'item_ii': { nome: 'Inciso II — Por Item (sem divisão)', dispositivo: 'Art. 79, II' },
+    'lote_ii': { nome: 'Inciso II — Por Lote (sem divisão)', dispositivo: 'Art. 79, II' },
+  };
+  const tipo = getTipoJulgamento();
+  const info = labels[tipo] || labels['item'];
+  el.innerHTML = `
+    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+      <span style="font-weight:600;font-size:14px">${info.nome}</span>
+      <span style="font-size:11px;padding:2px 8px;border-radius:999px;background:var(--bg2);color:var(--text2)">${info.dispositivo}</span>
+    </div>`;
 }
 
 // Mostra/oculta os elementos de UI específicos do modo "por lote"
