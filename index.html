@@ -550,9 +550,22 @@
 
   <!-- ITENS -->
   <div id="tab-itens" class="section active">
+    <div class="card" id="secao-gerenciar-lotes" style="display:none">
+      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
+        <div>
+          <div class="card-title" style="margin-bottom:2px">📦 Lotes deste processo</div>
+          <div style="font-size:12px;color:var(--text3)">Cadastre os lotes e depois selecione o lote correspondente ao adicionar cada item abaixo.</div>
+        </div>
+        <button class="btn primary sm" onclick="abrirModalNovoLote()">+ Novo lote</button>
+      </div>
+    </div>
     <div class="card">
       <div class="card-title">Adicionar item</div>
       <div class="row">
+        <div class="field" id="campo-item-lote" style="display:none">
+          <label>Lote</label>
+          <select class="w120" id="i-lote"><option value="">— Selecione —</option></select>
+        </div>
         <div class="field"><label>Código</label><input class="w80" id="i-cod" placeholder="0001"></div>
         <div class="field flex1"><label>Descrição do serviço</label><input id="i-desc" placeholder="Ex: CONSULTA OFTALMOLOGICA" style="width:100%"></div>
         <div class="field"><label>Qtde</label><input class="w80" type="number" id="i-qtde" min="0" value="0"></div>
@@ -801,6 +814,35 @@
     <div id="rel-content"></div>
   </div>
 </div>
+
+<!-- MODAL LOTE -->
+<div id="modal-lote" class="modal-overlay hidden">
+  <div class="modal" style="max-width:460px">
+    <div class="modal-header"><span id="modal-lote-title">Novo Lote</span><button class="modal-close" onclick="fecharModalLote()">&#10005;</button></div>
+    <input type="hidden" id="lote-edit-id">
+    <div class="field">
+      <label>Nome do lote *</label>
+      <input id="lote-nome" placeholder="Ex: Lote 01 — Exames de imagem" style="width:100%">
+    </div>
+    <div class="field">
+      <label>Descrição (opcional)</label>
+      <textarea id="lote-descricao" style="width:100%;height:60px;resize:vertical" placeholder="Detalhes ou observações sobre o lote..."></textarea>
+    </div>
+    <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px">
+      <button class="btn" onclick="fecharModalLote()">Cancelar</button>
+      <button class="btn primary" onclick="salvarLote()">&#10003; Salvar lote</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(function() {
+  const overlay = document.getElementById('modal-lote');
+  let mousedownOnOverlay = false;
+  overlay.addEventListener('mousedown', e => { mousedownOnOverlay = (e.target === overlay); });
+  overlay.addEventListener('mouseup', e => { if (mousedownOnOverlay && e.target === overlay) fecharModalLote(); mousedownOnOverlay = false; });
+})();
+</script>
 
 <script>
 // ---- SUPABASE CONFIG ----
@@ -1099,6 +1141,8 @@ function abrirProcesso(id) {
   document.getElementById('app-main').style.display = 'block';
 
   atualizarBannerProcesso();
+  atualizarUILoteVisibility();
+  renderLoteSelect();
   renderItens();
   renderEmpresas();
   renderEmpChipsAdd();
@@ -1118,6 +1162,7 @@ async function salvarProcesso(manual = false) {
     itens: JSON.parse(JSON.stringify(itens)),
     empresas: JSON.parse(JSON.stringify(empresas)),
     divisoes: JSON.parse(JSON.stringify(divisoes)),
+    lotes: JSON.parse(JSON.stringify(lotes)),
     status: lista[idx].status,
     atualizadoEm: new Date().toISOString()
   };
@@ -1558,12 +1603,18 @@ function updateMetrics() {
 // ---- VINCULAÇÃO (checkbox grid) ----
 function renderVinculacao() {
   const container = document.getElementById('vinculacao-container');
-  if (!itens.length) {
-    container.innerHTML = '<div class="card"><div class="empty">Nenhum item cadastrado. Cadastre itens na aba Itens.</div></div>';
-    return;
-  }
   if (!empresas.length) {
     container.innerHTML = '<div class="card"><div class="empty">Nenhuma empresa cadastrada. Cadastre empresas na aba Empresas.</div></div>';
+    return;
+  }
+
+  if (isLote()) {
+    renderVinculacaoPorLote(container);
+    return;
+  }
+
+  if (!itens.length) {
+    container.innerHTML = '<div class="card"><div class="empty">Nenhum item cadastrado. Cadastre itens na aba Itens.</div></div>';
     return;
   }
 
@@ -1611,6 +1662,47 @@ function renderVinculacao() {
       </table>
     </div>
   </div>`;
+}
+
+// Vinculação por lote: a empresa é vinculada ao lote inteiro (cascateia para todos os itens do lote)
+function renderVinculacaoPorLote(container) {
+  if (!lotes.length) {
+    container.innerHTML = '<div class="card"><div class="empty">Nenhum lote cadastrado ainda. Crie lotes na aba Itens.</div></div>';
+    return;
+  }
+
+  let html = lotes.map(l => {
+    const its = itens.filter(it => it.loteId === l.id);
+    const checkboxes = empresas.map(e => {
+      const checked = (l.empIds || []).includes(e.id) ? 'checked' : '';
+      const nomeAbrev = e.nome.length > 35 ? e.nome.substring(0, 33) + '…' : e.nome;
+      return `<label class="vinc-label" title="${e.nome}">
+        <input type="checkbox" class="vinc-cb" ${checked} onchange="toggleVinculacaoLote('${l.id}','${e.id}',this.checked)">
+        <span class="vinc-emp-nome">${nomeAbrev}</span>
+      </label>`;
+    }).join('');
+
+    return `<div class="card">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;flex-wrap:wrap;gap:8px">
+        <div>
+          <div style="font-weight:700">&#128230; ${l.nome}</div>
+          <div style="font-size:11px;color:var(--text3)">${its.length} item(ns) neste lote</div>
+        </div>
+        <div style="white-space:nowrap">
+          <button class="vinc-todas" onclick="vincularTodasNoLote('${l.id}')">Todas</button>
+          <button class="vinc-todas" onclick="desvincularTodasNoLote('${l.id}')" style="margin-left:4px">Nenhuma</button>
+        </div>
+      </div>
+      <div class="vinc-checkboxes">${checkboxes}</div>
+    </div>`;
+  }).join('');
+
+  const semLote = itens.filter(it => !it.loteId);
+  if (semLote.length) {
+    html += `<div class="alert warn">&#9888; Há ${semLote.length} item(ns) sem lote atribuído. Vá à aba Itens para atribuí-los a um lote.</div>`;
+  }
+
+  container.innerHTML = html;
 }
 
 function toggleVinculacao(cod, empId, checked) {
@@ -1669,8 +1761,19 @@ function addItem() {
   const und = document.getElementById('i-und').value.trim() || 'UND';
   const vunit = parseFloat(document.getElementById('i-vunit').value) || 0;
   if (!cod || !desc) { alert('Preencha código e descrição.'); return; }
+  const loteSel = document.getElementById('i-lote');
+  if (isLote() && lotes.length && loteSel && !loteSel.value) {
+    if (!confirm('Nenhum lote selecionado. Deseja adicionar este item sem vínculo a um lote?')) return;
+  }
+  const loteId = (isLote() && loteSel) ? (loteSel.value || null) : null;
   const existing = itens.findIndex(i => i.cod === cod);
-  const item = { cod, desc, qtde, und, vunit, empIds: existing >= 0 ? itens[existing].empIds : [] };
+  const item = { cod, desc, qtde, und, vunit, loteId, empIds: existing >= 0 ? itens[existing].empIds : [] };
+  if (loteId) {
+    const lote = lotes.find(l => l.id === loteId);
+    if (lote && lote.empIds && lote.empIds.length) {
+      lote.empIds.forEach(empId => { if (!item.empIds.includes(empId)) item.empIds.push(empId); });
+    }
+  }
   if (existing >= 0) {
     if (!confirm(`Item ${cod} já existe. Deseja sobrescrever?`)) return;
     itens[existing] = item;
@@ -1680,6 +1783,7 @@ function addItem() {
   ['i-cod','i-desc','i-und'].forEach(id => document.getElementById(id).value = '');
   document.getElementById('i-qtde').value = 0;
   document.getElementById('i-vunit').value = 0;
+  if (loteSel) loteSel.value = '';
   renderItens();
   updateMetrics();
   salvarProcesso(false);
@@ -1702,39 +1806,97 @@ function editItem(cod) {
   document.getElementById('i-qtde').value = it.qtde;
   document.getElementById('i-und').value = it.und;
   document.getElementById('i-vunit').value = it.vunit;
+  const loteSel = document.getElementById('i-lote');
+  if (loteSel) loteSel.value = it.loteId || '';
   showTabDirect('itens');
   window.scrollTo(0, 0);
 }
 
+function linhaItemHtml(i) {
+  const vtotal = i.qtde * i.vunit;
+  const empNames = i.empIds.map(id => {
+    const e = empresas.find(x => x.id === id);
+    return e ? `<span class="badge">${e.nome.split(' ').slice(0, 2).join(' ')}</span>` : '';
+  }).join('');
+  return `<tr>
+    <td style="font-weight:600;color:var(--info-text)">${i.cod}</td>
+    <td>${i.desc}</td>
+    <td>${i.qtde.toLocaleString('pt-BR')}</td>
+    <td style="color:var(--text2)">${i.und}</td>
+    <td>${fmt(i.vunit)}</td>
+    <td style="font-weight:600">${fmt(vtotal)}</td>
+    <td>${empNames || '<span style="color:var(--text3);font-size:12px">nenhuma</span>'}</td>
+    <td style="white-space:nowrap">
+      <button class="btn sm" onclick="editItem('${i.cod}')" title="Editar">&#9998;</button>
+      <button class="btn danger sm" onclick="removeItem('${i.cod}')" title="Remover">&#10005;</button>
+    </td>
+  </tr>`;
+}
+
 function renderItens(filter = '') {
   const f = filter.toLowerCase();
-  const filtered = itens.filter(i => !f || i.desc.toLowerCase().includes(f) || i.cod.includes(f));
   document.getElementById('count-itens').textContent = itens.length;
   const tbody = document.getElementById('tbody-itens');
+
+  if (isLote()) {
+    renderItensPorLote(tbody, f);
+    return;
+  }
+
+  const filtered = itens.filter(i => !f || i.desc.toLowerCase().includes(f) || i.cod.includes(f));
   if (!filtered.length) {
     tbody.innerHTML = `<tr><td colspan="8" class="empty">Nenhum item encontrado.</td></tr>`;
     return;
   }
-  tbody.innerHTML = filtered.map(i => {
-    const vtotal = i.qtde * i.vunit;
-    const empNames = i.empIds.map(id => {
+  tbody.innerHTML = filtered.map(linhaItemHtml).join('');
+}
+
+function renderItensPorLote(tbody, filter = '') {
+  const f = filter || '';
+  let html = '';
+
+  lotes.forEach(l => {
+    let its = itens.filter(it => it.loteId === l.id);
+    if (f) its = its.filter(i => i.desc.toLowerCase().includes(f) || i.cod.includes(f));
+    if (f && !its.length) return;
+
+    const valorTotal = getLoteValorTotal(l.id);
+    const empNomes = (l.empIds || []).map(id => {
       const e = empresas.find(x => x.id === id);
-      return e ? `<span class="badge">${e.nome.split(' ').slice(0, 2).join(' ')}</span>` : '';
-    }).join('');
-    return `<tr>
-      <td style="font-weight:600;color:var(--info-text)">${i.cod}</td>
-      <td>${i.desc}</td>
-      <td>${i.qtde.toLocaleString('pt-BR')}</td>
-      <td style="color:var(--text2)">${i.und}</td>
-      <td>${fmt(i.vunit)}</td>
-      <td style="font-weight:600">${fmt(vtotal)}</td>
-      <td>${empNames || '<span style="color:var(--text3);font-size:12px">nenhuma</span>'}</td>
-      <td style="white-space:nowrap">
-        <button class="btn sm" onclick="editItem('${i.cod}')" title="Editar">&#9998;</button>
-        <button class="btn danger sm" onclick="removeItem('${i.cod}')" title="Remover">&#10005;</button>
+      return e ? e.nome.split(' ').slice(0, 2).join(' ') : '';
+    }).filter(Boolean);
+
+    html += `<tr style="background:var(--bg2)">
+      <td colspan="8" style="padding:10px 12px">
+        <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
+          <div>
+            <span style="font-weight:700">&#128230; ${l.nome}</span>
+            ${l.descricao ? `<span style="color:var(--text3);font-size:12px;margin-left:8px">${l.descricao}</span>` : ''}
+            <div style="font-size:11px;color:var(--text3);margin-top:2px">${its.length} item(ns) &middot; ${fmt(valorTotal)} &middot; Empresas: ${empNomes.length ? empNomes.join(', ') : 'nenhuma'}</div>
+          </div>
+          <div style="white-space:nowrap">
+            <button class="btn sm" onclick="showTabDirect('vinculacao')" title="Vincular empresas ao lote">&#128279; Empresas</button>
+            <button class="btn sm" onclick="abrirModalNovoLote('${l.id}')" title="Editar lote">&#9998;</button>
+            <button class="btn danger sm" onclick="excluirLote('${l.id}')" title="Excluir lote">&#10005;</button>
+          </div>
+        </div>
       </td>
     </tr>`;
-  }).join('');
+
+    html += its.length
+      ? its.map(linhaItemHtml).join('')
+      : `<tr><td colspan="8" class="empty" style="padding:10px 20px">Nenhum item neste lote ainda. Adicione um item acima selecionando este lote.</td></tr>`;
+  });
+
+  let semLote = itens.filter(it => !it.loteId);
+  if (f) semLote = semLote.filter(i => i.desc.toLowerCase().includes(f) || i.cod.includes(f));
+  if (semLote.length) {
+    html += `<tr style="background:var(--bg2)"><td colspan="8" style="padding:10px 12px"><span style="font-weight:700;color:var(--text3)">&#128203; Sem lote atribuído</span></td></tr>`;
+    html += semLote.map(linhaItemHtml).join('');
+  }
+
+  if (!html) html = `<tr><td colspan="8" class="empty">${lotes.length ? 'Nenhum item encontrado.' : 'Nenhum lote cadastrado ainda. Clique em "+ Novo lote" acima para começar.'}</td></tr>`;
+  tbody.innerHTML = html;
 }
 
 // ---- EMPRESAS ----
@@ -3200,6 +3362,24 @@ function atualizarDescricaoTipo() {
   el.textContent = desc[val] || '';
 }
 
+// Mostra/oculta os elementos de UI específicos do modo "por lote"
+function atualizarUILoteVisibility() {
+  const show = isLote();
+  const campoLote = document.getElementById('campo-item-lote');
+  if (campoLote) campoLote.style.display = show ? '' : 'none';
+  const secaoLotes = document.getElementById('secao-gerenciar-lotes');
+  if (secaoLotes) secaoLotes.style.display = show ? '' : 'none';
+}
+
+// Preenche o <select> de lote no formulário de adicionar item
+function renderLoteSelect() {
+  const sel = document.getElementById('i-lote');
+  if (!sel) return;
+  const atual = sel.value;
+  sel.innerHTML = '<option value="">— Selecione —</option>' + lotes.map(l => `<option value="${l.id}">${l.nome}</option>`).join('');
+  if (lotes.find(l => l.id === atual)) sel.value = atual;
+}
+
 function abrirModalNovoLote(loteId) {
   const lote = loteId ? lotes.find(l => l.id === loteId) : null;
   document.getElementById('modal-lote-title').textContent = lote ? 'Editar Lote' : 'Novo Lote';
@@ -3226,6 +3406,7 @@ function salvarLote() {
     lotes.push({ id: 'lote_' + Date.now(), nome, descricao, itens: [], empIds: [] });
   }
   fecharModalLote();
+  renderLoteSelect();
   renderItens();
   salvarProcesso(false);
 }
@@ -3237,6 +3418,7 @@ function excluirLote(loteId) {
   if (nItens && !confirm('O lote "' + lote.nome + '" tem ' + nItens + ' item(s). Excluir o lote desvinculará os itens (eles permanecem no processo). Confirmar?')) return;
   itens.forEach(it => { if (it.loteId === loteId) it.loteId = null; });
   lotes = lotes.filter(l => l.id !== loteId);
+  renderLoteSelect();
   renderItens();
   salvarProcesso(false);
 }
@@ -3261,8 +3443,26 @@ function vincularEmpresasAoLote(loteId, empIds) {
   lote.empIds = [...empIds];
   itens.filter(it => it.loteId === loteId).forEach(it => { it.empIds = [...empIds]; });
   renderVinculacao();
+  renderItens();
   updateMetrics();
   salvarProcesso(false);
+}
+
+function toggleVinculacaoLote(loteId, empId, checked) {
+  const l = lotes.find(x => x.id === loteId);
+  if (!l) return;
+  if (!l.empIds) l.empIds = [];
+  if (checked && !l.empIds.includes(empId)) l.empIds.push(empId);
+  if (!checked) l.empIds = l.empIds.filter(x => x !== empId);
+  vincularEmpresasAoLote(loteId, l.empIds);
+}
+
+function vincularTodasNoLote(loteId) {
+  vincularEmpresasAoLote(loteId, empresas.map(e => e.id));
+}
+
+function desvincularTodasNoLote(loteId) {
+  vincularEmpresasAoLote(loteId, []);
 }
 
 function getLoteValorTotal(loteId) {
@@ -3672,14 +3872,4 @@ function toggleSenhaVisib(inputId, btn) {
 </script>
 
 </body>
-</html>function renderItens() {
-  document.getElementById('count-itens').textContent = itens.length;
-  const tbody = document.getElementById('tbody-itens');
-
-  if (isLote()) {
-    renderItensPorLote(tbody);
-    return;
-  }
-
-  // Modo padrão (por item)
-
+</html>
