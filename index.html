@@ -772,6 +772,29 @@
       <div id="csv-preview" style="margin-top:12px"></div>
     </div>
 
+    <div class="card" id="card-importar-lotes" style="display:none">
+      <div class="card-title">&#128230; Importar lotes via Excel (.xlsx)</div>
+      <p style="font-size:13px;color:var(--text2);margin-bottom:10px">
+        Suba uma planilha Excel com os lotes deste processo. O sistema reconhece automaticamente as colunas pelo cabeçalho.
+      </p>
+      <div style="background:var(--bg2);border-radius:var(--radius);padding:10px 14px;margin-bottom:14px;font-size:12px;">
+        <div style="font-weight:600;margin-bottom:6px;color:var(--text2);text-transform:uppercase;font-size:11px;letter-spacing:0.3px">Colunas reconhecidas automaticamente</div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:6px;">
+          <div><code style="background:var(--bg);padding:2px 6px;border-radius:4px;font-size:11px">Nome</code> ou <code style="background:var(--bg);padding:2px 6px;border-radius:4px;font-size:11px">Lote</code></div>
+          <div><code style="background:var(--bg);padding:2px 6px;border-radius:4px;font-size:11px">Descricao</code> ou <code style="background:var(--bg);padding:2px 6px;border-radius:4px;font-size:11px">Observacao</code></div>
+        </div>
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+        <label class="btn primary" style="cursor:pointer;display:inline-block">
+          &#8679; Selecionar arquivo Excel
+          <input type="file" id="xlsx-lotes-input" accept=".xlsx,.xls" style="display:none" onchange="importLotesExcel(this)">
+        </label>
+        <button class="btn" onclick="baixarModeloLotes()">&#8681; Baixar modelo Excel</button>
+      </div>
+      <div id="xlsx-lotes-status" style="margin-top:12px"></div>
+      <div id="xlsx-lotes-preview" style="margin-top:10px;overflow-x:auto"></div>
+    </div>
+
     <div class="card">
       <div class="card-title">&#128202; Importar itens via Excel (.xlsx)</div>
       <p style="font-size:13px;color:var(--text2);margin-bottom:10px">
@@ -2787,6 +2810,110 @@ function baixarModeloItens() {
   XLSX.writeFile(wb, 'modelo_itens.xlsx');
 }
 
+// ---- IMPORT LOTES EXCEL ----
+function importLotesExcel(input) {
+  const file = input.files[0];
+  if (!file) return;
+  const statusEl = document.getElementById('xlsx-lotes-status');
+  const previewEl = document.getElementById('xlsx-lotes-preview');
+  statusEl.innerHTML = '<div class="alert info">&#128196; Lendo planilha de lotes...</div>';
+  previewEl.innerHTML = '';
+
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    try {
+      const wb = XLSX.read(e.target.result, { type: 'array' });
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      const rows = XLSX.utils.sheet_to_json(ws, { defval: '' });
+
+      if (!rows.length) {
+        statusEl.innerHTML = '<div class="alert warn">&#9888; Planilha vazia ou sem dados.</div>';
+        return;
+      }
+
+      // Normalizar cabeçalhos — mapeia para campos internos
+      const colMap = {};
+      Object.keys(rows[0]).forEach(k => {
+        const kn = k.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim().replace(/\s+/g,'');
+        if (['nome','lote','nomedolote'].some(x => kn === x || kn.startsWith(x)))         colMap.nome      = k;
+        if (['descricao','descr','observacao','obs','detalhes'].some(x => kn.includes(x))) colMap.descricao = k;
+      });
+
+      if (!colMap.nome) {
+        statusEl.innerHTML = '<div class="alert warn">&#9888; Não foi possível identificar a coluna do nome do lote. Verifique se o cabeçalho contém <strong>Nome</strong> ou <strong>Lote</strong>.</div>';
+        return;
+      }
+
+      let added = 0, updated = 0, skipped = 0;
+      const preview = [];
+
+      rows.forEach((row, idx) => {
+        const nome = colMap.nome ? String(row[colMap.nome] || '').trim() : '';
+        if (!nome) { skipped++; return; }
+        const descricao = colMap.descricao ? String(row[colMap.descricao] || '').trim() : '';
+
+        const existing = lotes.find(l => l.nome.trim().toLowerCase() === nome.toLowerCase());
+        if (existing) {
+          existing.descricao = descricao || existing.descricao || '';
+          updated++;
+          preview.push({ nome, descricao: existing.descricao, status: 'atualizado' });
+        } else {
+          lotes.push({ id: 'lote_' + Date.now() + '_' + idx, nome, descricao, itens: [], empIds: [] });
+          added++;
+          preview.push({ nome, descricao, status: 'adicionado' });
+        }
+      });
+
+      statusEl.innerHTML = `<div class="alert ok">
+        &#10003; Importação concluída — <strong>${added}</strong> lote(s) adicionado(s), <strong>${updated}</strong> atualizado(s)${skipped ? ', <strong>' + skipped + '</strong> ignorado(s) (sem nome)' : ''}.
+      </div>`;
+
+      // Prévia
+      if (preview.length) {
+        previewEl.innerHTML = `
+          <div style="font-size:11px;color:var(--text3);font-weight:500;text-transform:uppercase;letter-spacing:0.3px;margin-bottom:6px">
+            Prévia — ${preview.length > 10 ? 'primeiros 10 de ' + preview.length : preview.length} registro(s)
+          </div>
+          <table style="font-size:12px;width:100%">
+            <thead><tr><th>Nome</th><th>Descrição</th><th>Status</th></tr></thead>
+            <tbody>${preview.slice(0,10).map(r => `<tr>
+              <td style="font-weight:600">${r.nome}</td>
+              <td style="color:var(--text2)">${r.descricao || '—'}</td>
+              <td><span style="font-size:11px;padding:2px 8px;border-radius:10px;
+                background:${r.status==='adicionado'?'var(--success-bg)':'var(--info-bg)'};
+                color:${r.status==='adicionado'?'var(--success-text)':'var(--info-text)'}">
+                ${r.status}</span></td>
+            </tr>`).join('')}
+            ${preview.length > 10 ? `<tr><td colspan="3" style="color:var(--text3);font-size:11px;text-align:center">... e mais ${preview.length-10} registro(s)</td></tr>` : ''}
+            </tbody>
+          </table>`;
+      }
+
+      renderLoteSelect();
+      renderItens();
+      updateMetrics();
+      salvarProcesso(false);
+      input.value = '';
+    } catch(err) {
+      statusEl.innerHTML = `<div class="alert warn">&#9888; Erro ao processar o arquivo: ${err.message}</div>`;
+    }
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+function baixarModeloLotes() {
+  const wb = XLSX.utils.book_new();
+  const ws = XLSX.utils.aoa_to_sheet([
+    ['Nome', 'Descricao'],
+    ['Lote 01 — Exames de imagem', 'Exames radiológicos e de imagem em geral'],
+    ['Lote 02 — Exames laboratoriais', 'Coleta e análise de exames clínicos'],
+    ['Lote 03 — Procedimentos ambulatoriais', ''],
+  ]);
+  ws['!cols'] = [{wch:42},{wch:55}];
+  XLSX.utils.book_append_sheet(wb, ws, 'Lotes');
+  XLSX.writeFile(wb, 'modelo_lotes.xlsx');
+}
+
 // ---- IMPORT EMPRESAS EXCEL ----
 function importEmpresasExcel(input) {
   const file = input.files[0];
@@ -3435,6 +3562,8 @@ function atualizarUILoteVisibility() {
   if (campoLote) campoLote.style.display = show ? '' : 'none';
   const secaoLotes = document.getElementById('secao-gerenciar-lotes');
   if (secaoLotes) secaoLotes.style.display = show ? '' : 'none';
+  const cardImportarLotes = document.getElementById('card-importar-lotes');
+  if (cardImportarLotes) cardImportarLotes.style.display = show ? '' : 'none';
 }
 
 // Preenche o <select> de lote no formulário de adicionar item
