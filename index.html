@@ -756,6 +756,33 @@
       <div id="xlsx-lotes-preview" style="margin-top:10px;overflow-x:auto"></div>
     </div>
 
+    <div class="card" id="card-importar-itens-lote" style="display:none">
+      <div class="card-title">&#128230; Importar itens já organizados em lotes (.xlsx)</div>
+      <p style="font-size:13px;color:var(--text2);margin-bottom:10px">
+        Suba uma planilha com os itens e a coluna <strong>Lote</strong> preenchida — os lotes são criados automaticamente e cada item já entra vinculado ao seu lote.
+      </p>
+      <div style="background:var(--bg2);border-radius:var(--radius);padding:10px 14px;margin-bottom:14px;font-size:12px;">
+        <div style="font-weight:600;margin-bottom:6px;color:var(--text2);text-transform:uppercase;font-size:11px;letter-spacing:0.3px">Colunas reconhecidas automaticamente</div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:6px;">
+          <div><code style="background:var(--bg);padding:2px 6px;border-radius:4px;font-size:11px">Lote</code></div>
+          <div><code style="background:var(--bg);padding:2px 6px;border-radius:4px;font-size:11px">Item</code> ou <code style="background:var(--bg);padding:2px 6px;border-radius:4px;font-size:11px">Código</code></div>
+          <div><code style="background:var(--bg);padding:2px 6px;border-radius:4px;font-size:11px">Descricao</code> ou <code style="background:var(--bg);padding:2px 6px;border-radius:4px;font-size:11px">Produto</code></div>
+          <div><code style="background:var(--bg);padding:2px 6px;border-radius:4px;font-size:11px">Quantidade</code> ou <code style="background:var(--bg);padding:2px 6px;border-radius:4px;font-size:11px">Qtde</code></div>
+          <div><code style="background:var(--bg);padding:2px 6px;border-radius:4px;font-size:11px">Unidade</code> ou <code style="background:var(--bg);padding:2px 6px;border-radius:4px;font-size:11px">UND</code></div>
+          <div><code style="background:var(--bg);padding:2px 6px;border-radius:4px;font-size:11px">Valor Unitario</code> ou <code style="background:var(--bg);padding:2px 6px;border-radius:4px;font-size:11px">Vl Unit</code></div>
+        </div>
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+        <label class="btn primary" style="cursor:pointer;display:inline-block">
+          &#8679; Selecionar arquivo Excel
+          <input type="file" id="xlsx-itenslote-input" accept=".xlsx,.xls" style="display:none" onchange="importItensPorLoteExcel(this)">
+        </label>
+        <button class="btn" onclick="baixarModeloItensPorLote()">&#8681; Baixar modelo Excel</button>
+      </div>
+      <div id="xlsx-itenslote-status" style="margin-top:12px"></div>
+      <div id="xlsx-itenslote-preview" style="margin-top:10px;overflow-x:auto"></div>
+    </div>
+
     <div class="card">
       <div class="card-title">&#128202; Importar itens via Excel (.xlsx)</div>
       <p style="font-size:13px;color:var(--text2);margin-bottom:10px">
@@ -2732,10 +2759,20 @@ function baixarModeloCSVTexto() {
 
 // ---- IMPORT ITENS EXCEL ----
 function importItensExcel(input) {
+  _importItensExcelCore(input, 'xlsx-itens-status', 'xlsx-itens-preview');
+}
+
+// Entrada dedicada do card "Importar lotes": planilha de itens já organizados em lotes
+// (mesma lógica de importação, cria os lotes automaticamente pela coluna "Lote")
+function importItensPorLoteExcel(input) {
+  _importItensExcelCore(input, 'xlsx-itenslote-status', 'xlsx-itenslote-preview');
+}
+
+function _importItensExcelCore(input, statusElId, previewElId) {
   const file = input.files[0];
   if (!file) return;
-  const statusEl = document.getElementById('xlsx-itens-status');
-  const previewEl = document.getElementById('xlsx-itens-preview');
+  const statusEl = document.getElementById(statusElId);
+  const previewEl = document.getElementById(previewElId);
   statusEl.innerHTML = '<div class="alert info">&#128196; Lendo planilha de itens...</div>';
   previewEl.innerHTML = '';
 
@@ -2981,6 +3018,37 @@ function baixarModeloLotes() {
   ws['!cols'] = [{wch:42},{wch:55}];
   XLSX.utils.book_append_sheet(wb, ws, 'Lotes');
   XLSX.writeFile(wb, 'modelo_lotes.xlsx');
+}
+
+// Modelo combinado: itens já organizados em lotes (cria os lotes automaticamente pela coluna "Lote")
+function baixarModeloItensPorLote() {
+  const wb = XLSX.utils.book_new();
+  const ws = XLSX.utils.aoa_to_sheet([
+    ['Lote', 'Item', 'Descricao', 'Quantidade', 'Unidade', 'Valor Unitario'],
+    ['LOTE 01 - MEDICINA NUCLEAR', '0001', 'CINTILOGRAFIA OSSEA TRIFASICA', 3, 'UND', 550.00],
+    ['LOTE 01 - MEDICINA NUCLEAR', '0002', 'CINTILOGRAFIA COM HEMACIAS MARCADAS', 3, 'UND', 660.00],
+    ['LOTE 01 - MEDICINA NUCLEAR', '0003', 'IODOTERAPIA 15 MCI', 3, 'UND', 1485.00],
+    ['LOTE 02 - EXAMES OFTALMOLOGICOS', '0004', 'CONSULTA OFTALMOLOGICA', 1000, 'Cons', 95.00],
+    ['LOTE 02 - EXAMES OFTALMOLOGICOS', '0005', 'ANGIOGRAFIA FLUORESCEINA', 100, 'UND', 400.00],
+    ['LOTE 02 - EXAMES OFTALMOLOGICOS', '0006', 'BIOMETRIA (MONOCULAR)', 300, 'UND', 60.00],
+  ]);
+  ws['!cols'] = [{wch:32},{wch:8},{wch:42},{wch:14},{wch:12},{wch:18}];
+  XLSX.utils.book_append_sheet(wb, ws, 'Itens');
+
+  const wsInstr = XLSX.utils.aoa_to_sheet([
+    ['Como usar este modelo — itens organizados em lotes'],
+    [''],
+    ['- Cada linha é UM item. Preencha o nome do lote na coluna "Lote" para cada item que pertence a ele.'],
+    ['- Você pode colocar quantos lotes quiser: basta repetir o mesmo nome de lote nas linhas dos itens que pertencem a ele.'],
+    ['- Lotes com nomes novos são criados automaticamente na importação — não precisa cadastrar o lote antes.'],
+    ['- Se dois itens de lotes diferentes tiverem o mesmo código "Item", ajuste os códigos para não se sobrescreverem.'],
+    ['- Deixe a coluna "Lote" em branco para um item que não pertence a nenhum lote.'],
+    ['- Esta planilha só se aplica a processos com Tipo de julgamento "Por Lote".'],
+  ]);
+  wsInstr['!cols'] = [{wch:95}];
+  XLSX.utils.book_append_sheet(wb, wsInstr, 'Instrucoes');
+
+  XLSX.writeFile(wb, 'modelo_itens_por_lote.xlsx');
 }
 
 // ---- IMPORT EMPRESAS EXCEL ----
@@ -3654,6 +3722,8 @@ function atualizarUILoteVisibility() {
   if (secaoLotes) secaoLotes.style.display = show ? '' : 'none';
   const cardImportarLotes = document.getElementById('card-importar-lotes');
   if (cardImportarLotes) cardImportarLotes.style.display = show ? '' : 'none';
+  const cardImportarItensLote = document.getElementById('card-importar-itens-lote');
+  if (cardImportarItensLote) cardImportarItensLote.style.display = show ? '' : 'none';
 }
 
 // Preenche o <select> de lote no formulário de adicionar item
