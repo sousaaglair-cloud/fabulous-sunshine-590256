@@ -1730,15 +1730,15 @@ function renderVinculacaoPorLote(container) {
       </label>`;
     }).join('');
 
-    return `<div class="card">
+    return `<div class="card" style="overflow:hidden">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;flex-wrap:wrap;gap:8px">
-        <div>
+        <div style="min-width:0;overflow-wrap:anywhere">
           <div style="font-weight:700">&#128230; ${l.nome}</div>
           <div style="font-size:11px;color:var(--text3)">${its.length} item(ns) neste lote</div>
         </div>
-        <div style="white-space:nowrap">
-          <button class="vinc-todas" onclick="vincularTodasNoLote('${l.id}')">Todas</button>
-          <button class="vinc-todas" onclick="desvincularTodasNoLote('${l.id}')" style="margin-left:4px">Nenhuma</button>
+        <div style="display:flex;gap:6px;flex-shrink:0">
+          <button class="vinc-todas" style="width:auto" onclick="vincularTodasNoLote('${l.id}')">Todas</button>
+          <button class="vinc-todas" style="width:auto" onclick="desvincularTodasNoLote('${l.id}')">Nenhuma</button>
         </div>
       </div>
       <div class="vinc-checkboxes">${checkboxes}</div>
