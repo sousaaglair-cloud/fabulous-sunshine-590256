@@ -489,10 +489,10 @@
             <div class="field">
               <label>Tipo de julgamento</label>
               <select id="proc-tipo-julgamento" style="width:100%" onchange="atualizarDescricaoTipo()">
-                <option value="item">Inciso I — Julgamento por Item</option>
-                <option value="lote">Inciso I — Julgamento por Lote</option>
-                <option value="item_ii">Inciso II — Por Item (sem divisão)</option>
-                <option value="lote_ii">Inciso II — Por Lote (sem divisão)</option>
+                <option value="item">Art. 79, Inciso I — Julgamento por Item</option>
+                <option value="lote">Art. 79, Inciso I — Julgamento por Lote</option>
+                <option value="item_ii">Art. 79, Inciso II — Por Item (sem divisão)</option>
+                <option value="lote_ii">Art. 79, Inciso II — Por Lote (sem divisão)</option>
               </select>
               <div id="proc-tipo-desc" style="font-size:11px;color:var(--text3);margin-top:4px;line-height:1.5"></div>
             </div>
@@ -711,7 +711,7 @@
         </div>
       </div>
       <div id="divisao-sem-divisao-info" class="alert" style="display:none;margin-top:10px">
-        &#8505; Modalidade sem divisão (Art. 79, II) — cada empresa credenciada recebe automaticamente o quantitativo integral de cada item vinculado. Não há etapa manual de divisão.
+        &#8505; Modalidade sem divisão (Art. 79, Inciso II) — cada empresa credenciada recebe automaticamente o quantitativo integral de cada item vinculado. Não há etapa manual de divisão.
       </div>
     </div>
     <div id="divisao-container"></div>
@@ -2475,7 +2475,7 @@ function renderDivisao() {
     const totalDiv = emps.reduce((s, e) => s + (divisoes[it.cod][e.id] || 0), 0);
     const diff = it.qtde - totalDiv;
     const alertHtml = semDivisao
-      ? `<div class="alert ok" style="margin-bottom:10px">&#10003; ${emps.length} empresa(s) credenciada(s) recebendo o quantitativo integral (${it.qtde} ${it.und} cada, sem divisão — Art. 79, II)</div>`
+      ? `<div class="alert ok" style="margin-bottom:10px">&#10003; ${emps.length} empresa(s) credenciada(s) recebendo o quantitativo integral (${it.qtde} ${it.und} cada, sem divisão — Art. 79, Inciso II)</div>`
       : diff !== 0
       ? `<div class="alert warn" style="margin-bottom:10px">&#9888; Faltam alocar <strong>${Math.abs(diff)}</strong> unidade(s) ${diff > 0 ? '' : '(excesso)'} — total do item: ${it.qtde}</div>`
       : `<div class="alert ok" style="margin-bottom:10px">&#10003; Quantitativo completo (${it.qtde} ${it.und})</div>`;
@@ -3705,10 +3705,10 @@ function atualizarDescricaoTipo() {
   if (!el) return;
   const val = document.getElementById('proc-tipo-julgamento').value;
   const desc = {
-    'item':    'Julgamento por item com divisão de quantitativos (Art. 79, I).',
-    'lote':    'Itens em lotes, empresa vinculada ao lote inteiro, com divisão de quantitativos (Art. 79, I).',
-    'item_ii': 'Por item sem divisão — seleção a critério do beneficiário (Art. 79, II).',
-    'lote_ii': 'Por lote sem divisão — seleção a critério do beneficiário (Art. 79, II).',
+    'item':    'Julgamento por item com divisão de quantitativos (Art. 79, Inciso I).',
+    'lote':    'Itens em lotes, empresa vinculada ao lote inteiro, com divisão de quantitativos (Art. 79, Inciso I).',
+    'item_ii': 'Por item sem divisão — seleção a critério do beneficiário (Art. 79, Inciso II).',
+    'lote_ii': 'Por lote sem divisão — seleção a critério do beneficiário (Art. 79, Inciso II).',
   };
   el.textContent = desc[val] || '';
 }
