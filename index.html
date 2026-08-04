@@ -704,11 +704,14 @@
     <div class="card" style="margin-bottom:16px">
       <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
         <div class="card-title" style="margin-bottom:0">Divisão de quantitativos por item</div>
-        <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <div id="divisao-botoes" style="display:flex;gap:8px;flex-wrap:wrap">
           <button class="btn" onclick="dividirIgual()">&#9776; Dividir igualmente</button>
           <button class="btn" onclick="dividirProporcional()">&#9878; Divisão proporcional</button>
           <button class="btn danger sm" onclick="resetDivisao()">Resetar tudo</button>
         </div>
+      </div>
+      <div id="divisao-sem-divisao-info" class="alert" style="display:none;margin-top:10px">
+        &#8505; Modalidade sem divisão (Art. 79, II) — cada empresa credenciada recebe automaticamente o quantitativo integral de cada item vinculado. Não há etapa manual de divisão.
       </div>
     </div>
     <div id="divisao-container"></div>
@@ -1135,6 +1138,7 @@ async function confirmarProcesso() {
         atualizarUILoteVisibility();
         renderLoteSelect();
         renderItens();
+        updateMetrics();
       }
     }
   } else {
@@ -1561,6 +1565,7 @@ function fmt(v) {
 // ---- METRICS ----
 let _procChart = null;
 function updateMetrics() {
+  sincronizarAlocacaoSemDivisao();
   const totalGeral = itens.reduce((s, i) => s + i.qtde * i.vunit, 0);
   let alocado = 0;
   empresas.forEach(e => {
@@ -1757,6 +1762,7 @@ function toggleVinculacao(cod, empId, checked) {
   const countEl = document.getElementById('vinc-count-' + cod);
   if (countEl) countEl.textContent = it.empIds.length + ' empresa(s)';
   renderItens();
+  updateMetrics();
   salvarProcesso(false);
 }
 
@@ -1766,6 +1772,7 @@ function vincularTodasNoItem(cod) {
   it.empIds = empresas.map(e => e.id);
   renderVinculacao();
   renderItens();
+  updateMetrics();
   salvarProcesso(false);
 }
 
@@ -1775,6 +1782,7 @@ function desvincularTodasNoItem(cod) {
   it.empIds = [];
   renderVinculacao();
   renderItens();
+  updateMetrics();
   salvarProcesso(false);
 }
 
@@ -1782,6 +1790,7 @@ function vincularTodosEmTodos() {
   itens.forEach(it => { it.empIds = empresas.map(e => e.id); });
   renderVinculacao();
   renderItens();
+  updateMetrics();
   salvarProcesso(false);
 }
 
@@ -1790,6 +1799,7 @@ function desvincularTodos() {
   itens.forEach(it => { it.empIds = []; });
   renderVinculacao();
   renderItens();
+  updateMetrics();
   salvarProcesso(false);
 }
 
@@ -2401,7 +2411,34 @@ function salvarSituacaoEmpresa() {
 }
 
 // ---- DIVISÃO ----
+
+// Nas modalidades "sem divisão" (Inciso II, Art. 79 — item_ii/lote_ii), não existe etapa
+// manual de divisão: cada empresa credenciada e vinculada recebe automaticamente o
+// quantitativo integral do item, assim que o vínculo é feito. Empresas inabilitadas/
+// desclassificadas ou desvinculadas não recebem alocação.
+function sincronizarAlocacaoSemDivisao() {
+  if (isDivisao()) return; // item/lote: divisão continua manual
+  itens.forEach(it => {
+    if (!divisoes[it.cod]) divisoes[it.cod] = {};
+    const emps = it.empIds.map(id => empresas.find(e => e.id === id)).filter(Boolean);
+    const idsVinculados = new Set(emps.map(e => e.id));
+    Object.keys(divisoes[it.cod]).forEach(empId => {
+      if (!idsVinculados.has(empId)) delete divisoes[it.cod][empId];
+    });
+    emps.forEach(e => {
+      const inativa = e.situacao === 'inabilitada' || e.situacao === 'desclassificada';
+      divisoes[it.cod][e.id] = inativa ? 0 : it.qtde;
+    });
+  });
+}
+
 function renderDivisao() {
+  sincronizarAlocacaoSemDivisao();
+  const semDivisao = !isDivisao();
+  const botoesEl = document.getElementById('divisao-botoes');
+  const infoEl = document.getElementById('divisao-sem-divisao-info');
+  if (botoesEl) botoesEl.style.display = semDivisao ? 'none' : 'flex';
+  if (infoEl) infoEl.style.display = semDivisao ? 'block' : 'none';
   const c = document.getElementById('divisao-container');
   if (!itens.length) { c.innerHTML = '<p class="empty">Nenhum item cadastrado ainda.</p>'; return; }
   let html = '';
@@ -2411,7 +2448,9 @@ function renderDivisao() {
     const vtotal = it.qtde * it.vunit;
     const totalDiv = emps.reduce((s, e) => s + (divisoes[it.cod][e.id] || 0), 0);
     const diff = it.qtde - totalDiv;
-    const alertHtml = diff !== 0
+    const alertHtml = semDivisao
+      ? `<div class="alert ok" style="margin-bottom:10px">&#10003; ${emps.length} empresa(s) credenciada(s) recebendo o quantitativo integral (${it.qtde} ${it.und} cada, sem divisão — Art. 79, II)</div>`
+      : diff !== 0
       ? `<div class="alert warn" style="margin-bottom:10px">&#9888; Faltam alocar <strong>${Math.abs(diff)}</strong> unidade(s) ${diff > 0 ? '' : '(excesso)'} — total do item: ${it.qtde}</div>`
       : `<div class="alert ok" style="margin-bottom:10px">&#10003; Quantitativo completo (${it.qtde} ${it.und})</div>`;
 
@@ -2421,6 +2460,7 @@ function renderDivisao() {
       const vEmp = qtdE * it.vunit;
       const inativa = e.situacao === 'inabilitada' || e.situacao === 'desclassificada';
       const badgeSit = inativa ? `<span style="font-size:10px;padding:1px 6px;border-radius:10px;font-weight:600;background:${e.situacao==='inabilitada'?'var(--warn-bg)':'var(--danger-bg)'};color:${e.situacao==='inabilitada'?'var(--warn-text)':'var(--danger-text)'};border:1px solid ${e.situacao==='inabilitada'?'var(--warn-border)':'var(--danger-border)'};">${e.situacao==='inabilitada'?'Inabilitada':'Desclassificada'}</span>` : '';
+      const readOnly = inativa || semDivisao;
       return `<div class="division-row" style="${inativa ? 'opacity:0.55' : ''}">
         <div class="emp-name-short" title="${e.nome}" style="display:flex;flex-direction:column;gap:2px">
           <span>${e.nome.split(' ').slice(0,4).join(' ')}</span>
@@ -2429,8 +2469,8 @@ function renderDivisao() {
         <div class="progress-bar"><div class="progress-fill" style="width:${pct.toFixed(1)}%;background:${inativa?'var(--text3)':''}"></div></div>
         <span style="font-size:11px;color:var(--text2);width:42px;text-align:right">${pct.toFixed(0)}%</span>
         <input type="number" min="0" max="${it.qtde * 2}" step="1" value="${qtdE}"
-          style="width:90px;${inativa?'background:var(--bg2);color:var(--text3);cursor:not-allowed;':''}"
-          ${inativa ? 'disabled title="Empresa inabilitada/desclassificada"' : `onchange="setDivisao('${it.cod}','${e.id}',this.value)" oninput="setDivisao('${it.cod}','${e.id}',this.value)"`}>
+          style="width:90px;${readOnly?'background:var(--bg2);color:var(--text3);cursor:not-allowed;':''}"
+          ${readOnly ? `disabled title="${inativa ? 'Empresa inabilitada/desclassificada' : 'Modalidade sem divisão — quantitativo integral automático'}"` : `onchange="setDivisao('${it.cod}','${e.id}',this.value)" oninput="setDivisao('${it.cod}','${e.id}',this.value)"`}>
         <div style="width:120px;font-size:12px;color:var(--text2);text-align:right">${fmt(vEmp)}</div>
       </div>`;
     }).join('') : '<p style="font-size:13px;color:var(--text3);padding:8px 0">Nenhuma empresa vinculada a este item. Edite o item na aba Itens.</p>';
@@ -3641,6 +3681,7 @@ function moverItemParaLote(itemCod, loteId) {
     }
   }
   renderItens();
+  updateMetrics();
   salvarProcesso(false);
 }
 
