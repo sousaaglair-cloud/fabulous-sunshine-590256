@@ -3137,6 +3137,33 @@ function rodapeRelatorio() {
   </div>`;
 }
 
+// Agrupa uma lista de itens pelos lotes cadastrados, na ordem dos lotes.
+// Fora do modo "por lote" (Art. 79, I/II com lote), retorna um único grupo sem cabeçalho.
+function agruparItensPorLote(lista) {
+  if (!isLote() || !lotes.length) return [{ loteNome: null, itens: lista }];
+  const grupos = [];
+  const usados = new Set();
+  lotes.forEach(l => {
+    const its = lista.filter(it => it.loteId === l.id);
+    if (its.length) {
+      grupos.push({ loteNome: l.nome, loteDescricao: l.descricao || '', itens: its });
+      its.forEach(it => usados.add(it.cod));
+    }
+  });
+  const semLote = lista.filter(it => !usados.has(it.cod));
+  if (semLote.length) grupos.push({ loteNome: 'Sem lote vinculado', loteDescricao: '', itens: semLote });
+  return grupos;
+}
+
+function linhaCabecalhoLote(loteNome, loteDescricao, colspan) {
+  if (!loteNome) return '';
+  return `<tr class="rel-lote-header">
+    <td colspan="${colspan}" style="background:var(--bg2);font-weight:700;font-size:12px;color:var(--accent);padding:8px 10px;border-top:2px solid var(--accent)">
+      &#128230; LOTE — ${loteNome}${loteDescricao ? ` <span style="font-weight:400;color:var(--text2)">— ${loteDescricao}</span>` : ''}
+    </td>
+  </tr>`;
+}
+
 function buildConsolidado() {
   const processo = processoAtivo;
   let grandTotal = 0;
@@ -3180,25 +3207,29 @@ function buildConsolidado() {
         <th>Cód.</th><th>Descrição</th><th>Und</th><th>Qtde total</th><th>Qtde alocada</th><th>% Alocado</th><th>Vl. unitário</th><th>Vl. total</th><th>Vl. alocado</th>
       </tr></thead><tbody>`;
 
-  itens.forEach(it => {
-    const vtotal = it.qtde * it.vunit;
-    const qtdAloc = empresas.reduce((s, e) => s + ((divisoes[it.cod] && divisoes[it.cod][e.id]) || 0), 0);
-    const valAloc = qtdAloc * it.vunit;
-    const pct = it.qtde > 0 ? (qtdAloc / it.qtde * 100).toFixed(1) : '0.0';
-    const ok = qtdAloc >= it.qtde;
-    grandTotal += vtotal;
-    grandAlocado += valAloc;
-    html += `<tr>
-      <td style="font-weight:600;color:var(--info-text)">${it.cod}</td>
-      <td>${it.desc}</td>
-      <td style="color:var(--text2)">${it.und}</td>
-      <td>${it.qtde.toLocaleString('pt-BR')}</td>
-      <td style="font-weight:600;color:${ok ? 'var(--success-text)' : 'var(--warn-text)'}">${qtdAloc.toLocaleString('pt-BR')}</td>
-      <td><span style="font-size:11px;padding:2px 7px;border-radius:10px;background:${ok ? 'var(--success-bg)' : 'var(--warn-bg)'};color:${ok ? 'var(--success-text)' : 'var(--warn-text)'}">${pct}%</span></td>
-      <td>${fmt(it.vunit)}</td>
-      <td style="font-weight:600">${fmt(vtotal)}</td>
-      <td style="font-weight:600;color:var(--accent)">${fmt(valAloc)}</td>
-    </tr>`;
+  const gruposItens = agruparItensPorLote(itens);
+  gruposItens.forEach(grupo => {
+    html += linhaCabecalhoLote(grupo.loteNome, grupo.loteDescricao, 9);
+    grupo.itens.forEach(it => {
+      const vtotal = it.qtde * it.vunit;
+      const qtdAloc = empresas.reduce((s, e) => s + ((divisoes[it.cod] && divisoes[it.cod][e.id]) || 0), 0);
+      const valAloc = qtdAloc * it.vunit;
+      const pct = it.qtde > 0 ? (qtdAloc / it.qtde * 100).toFixed(1) : '0.0';
+      const ok = qtdAloc >= it.qtde;
+      grandTotal += vtotal;
+      grandAlocado += valAloc;
+      html += `<tr>
+        <td style="font-weight:600;color:var(--info-text)">${it.cod}</td>
+        <td>${it.desc}</td>
+        <td style="color:var(--text2)">${it.und}</td>
+        <td>${it.qtde.toLocaleString('pt-BR')}</td>
+        <td style="font-weight:600;color:${ok ? 'var(--success-text)' : 'var(--warn-text)'}">${qtdAloc.toLocaleString('pt-BR')}</td>
+        <td><span style="font-size:11px;padding:2px 7px;border-radius:10px;background:${ok ? 'var(--success-bg)' : 'var(--warn-bg)'};color:${ok ? 'var(--success-text)' : 'var(--warn-text)'}">${pct}%</span></td>
+        <td>${fmt(it.vunit)}</td>
+        <td style="font-weight:600">${fmt(vtotal)}</td>
+        <td style="font-weight:600;color:var(--accent)">${fmt(valAloc)}</td>
+      </tr>`;
+    });
   });
 
   html += `</tbody></table></div></div>`;
@@ -3275,22 +3306,26 @@ function buildEmpresaBlock(emp) {
   let rows = '';
   let hasItems = false;
 
-  itens.forEach(it => {
-    if (!it.empIds.includes(emp.id)) return;
-    const qtdAloc = (divisoes[it.cod] && divisoes[it.cod][emp.id]) || 0;
-    const vtotal = qtdAloc * it.vunit;
-    totalEmp += vtotal;
-    hasItems = true;
-    const ok = qtdAloc >= it.qtde;
-    rows += `<tr>
-      <td style="font-weight:600;color:var(--info-text)">${it.cod}</td>
-      <td>${it.desc}</td>
-      <td style="color:var(--text2)">${it.und}</td>
-      <td>${it.qtde.toLocaleString('pt-BR')}</td>
-      <td style="font-weight:600;color:${ok?'var(--success-text)':'var(--warn-text)'}">${qtdAloc.toLocaleString('pt-BR')}</td>
-      <td>${fmt(it.vunit)}</td>
-      <td style="font-weight:700;color:var(--accent)">${fmt(vtotal)}</td>
-    </tr>`;
+  const itensEmp = itens.filter(it => it.empIds.includes(emp.id));
+  const gruposEmp = agruparItensPorLote(itensEmp);
+  gruposEmp.forEach(grupo => {
+    if (grupo.itens.length) rows += linhaCabecalhoLote(grupo.loteNome, grupo.loteDescricao, 7);
+    grupo.itens.forEach(it => {
+      const qtdAloc = (divisoes[it.cod] && divisoes[it.cod][emp.id]) || 0;
+      const vtotal = qtdAloc * it.vunit;
+      totalEmp += vtotal;
+      hasItems = true;
+      const ok = qtdAloc >= it.qtde;
+      rows += `<tr>
+        <td style="font-weight:600;color:var(--info-text)">${it.cod}</td>
+        <td>${it.desc}</td>
+        <td style="color:var(--text2)">${it.und}</td>
+        <td>${it.qtde.toLocaleString('pt-BR')}</td>
+        <td style="font-weight:600;color:${ok?'var(--success-text)':'var(--warn-text)'}">${qtdAloc.toLocaleString('pt-BR')}</td>
+        <td>${fmt(it.vunit)}</td>
+        <td style="font-weight:700;color:var(--accent)">${fmt(vtotal)}</td>
+      </tr>`;
+    });
   });
 
   if (!hasItems) rows = `<tr><td colspan="7" class="empty">Nenhum item vinculado a esta empresa.</td></tr>`;
@@ -3416,12 +3451,15 @@ function exportarRelatorioExcel() {
     rows.push(['Código', 'Descrição', 'Und', 'Qtde total', 'Qtde alocada', 'Vl. unitário (R$)', 'Vl. total alocado (R$)']);
 
     let total = 0;
-    itens.forEach(it => {
-      if (!it.empIds.includes(emp.id)) return;
-      const q = (divisoes[it.cod] && divisoes[it.cod][emp.id]) || 0;
-      const vt = q * it.vunit;
-      total += vt;
-      rows.push([it.cod, it.desc, it.und, it.qtde, q, it.vunit, vt]);
+    const itensEmpXlsx = itens.filter(it => it.empIds.includes(emp.id));
+    agruparItensPorLote(itensEmpXlsx).forEach(grupo => {
+      if (grupo.loteNome) rows.push(['LOTE — ' + grupo.loteNome + (grupo.loteDescricao ? ' — ' + grupo.loteDescricao : ''), '', '', '', '', '', '']);
+      grupo.itens.forEach(it => {
+        const q = (divisoes[it.cod] && divisoes[it.cod][emp.id]) || 0;
+        const vt = q * it.vunit;
+        total += vt;
+        rows.push([it.cod, it.desc, it.und, it.qtde, q, it.vunit, vt]);
+      });
     });
     rows.push(['']);
     rows.push(['', '', '', '', '', 'TOTAL', total]);
@@ -3442,13 +3480,16 @@ function exportarRelatorioExcel() {
   ].filter(r => r.length > 0);
 
   let gTotal = 0, gAloc = 0;
-  itens.forEach(it => {
-    const qa = empresas.reduce((s,e) => s + ((divisoes[it.cod]&&divisoes[it.cod][e.id])||0), 0);
-    const vt = it.qtde * it.vunit;
-    const va = qa * it.vunit;
-    gTotal += vt; gAloc += va;
-    const pct = it.qtde > 0 ? (qa/it.qtde*100).toFixed(1)+'%' : '0.0%';
-    consRows.push([it.cod, it.desc, it.und, it.qtde, qa, pct, it.vunit, vt, va]);
+  agruparItensPorLote(itens).forEach(grupo => {
+    if (grupo.loteNome) consRows.push(['LOTE — ' + grupo.loteNome + (grupo.loteDescricao ? ' — ' + grupo.loteDescricao : ''), '', '', '', '', '', '', '', '']);
+    grupo.itens.forEach(it => {
+      const qa = empresas.reduce((s,e) => s + ((divisoes[it.cod]&&divisoes[it.cod][e.id])||0), 0);
+      const vt = it.qtde * it.vunit;
+      const va = qa * it.vunit;
+      gTotal += vt; gAloc += va;
+      const pct = it.qtde > 0 ? (qa/it.qtde*100).toFixed(1)+'%' : '0.0%';
+      consRows.push([it.cod, it.desc, it.und, it.qtde, qa, pct, it.vunit, vt, va]);
+    });
   });
   consRows.push(['']);
   consRows.push(['','','','','','','','TOTAL GERAL', gTotal]);
