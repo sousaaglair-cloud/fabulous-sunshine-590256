@@ -2854,32 +2854,59 @@ function importItensExcel(input) {
 
 function baixarModeloItens() {
   const wb = XLSX.utils.book_new();
-  const ws = XLSX.utils.aoa_to_sheet([
-    ['Lote', 'Item', 'Descricao', 'Quantidade', 'Unidade', 'Valor Unitario'],
-    ['LOTE 01 - MEDICINA NUCLEAR', '0001', 'CINTILOGRAFIA OSSEA TRIFASICA', 3, 'UND', 550.00],
-    ['LOTE 01 - MEDICINA NUCLEAR', '0002', 'CINTILOGRAFIA COM HEMACIAS MARCADAS', 3, 'UND', 660.00],
-    ['LOTE 01 - MEDICINA NUCLEAR', '0003', 'IODOTERAPIA 15 MCI', 3, 'UND', 1485.00],
-    ['LOTE 02 - EXAMES OFTALMOLOGICOS', '0004', 'CONSULTA OFTALMOLOGICA', 1000, 'Cons', 95.00],
-    ['LOTE 02 - EXAMES OFTALMOLOGICOS', '0005', 'ANGIOGRAFIA FLUORESCEINA', 100, 'UND', 400.00],
-    ['LOTE 02 - EXAMES OFTALMOLOGICOS', '0006', 'BIOMETRIA (MONOCULAR)', 300, 'UND', 60.00],
-  ]);
-  ws['!cols'] = [{wch:32},{wch:8},{wch:42},{wch:14},{wch:12},{wch:18}];
-  XLSX.utils.book_append_sheet(wb, ws, 'Itens');
 
-  const wsInstr = XLSX.utils.aoa_to_sheet([
-    ['Como usar este modelo'],
-    [''],
-    ['- Cada linha é UM item. Preencha o nome do lote na coluna "Lote" para cada item que pertence a ele.'],
-    ['- Você pode colocar quantos lotes quiser: basta repetir o mesmo nome de lote nas linhas dos itens que pertencem a ele.'],
-    ['- Lotes com nomes novos são criados automaticamente na importação — não precisa cadastrar o lote antes.'],
-    ['- Se dois itens de lotes diferentes tiverem o mesmo código "Item", ajuste os códigos para não se sobrescreverem.'],
-    ['- Deixe a coluna "Lote" em branco para um item que não pertence a nenhum lote.'],
-    ['- Esta planilha só se aplica a processos com Tipo de julgamento "Por Lote".'],
-  ]);
-  wsInstr['!cols'] = [{wch:95}];
-  XLSX.utils.book_append_sheet(wb, wsInstr, 'Instrucoes');
+  if (isLote()) {
+    // Processo por lote: modelo com a coluna "Lote" para já vincular cada item ao seu lote na importação
+    const ws = XLSX.utils.aoa_to_sheet([
+      ['Lote', 'Item', 'Descricao', 'Quantidade', 'Unidade', 'Valor Unitario'],
+      ['LOTE 01 - MEDICINA NUCLEAR', '0001', 'CINTILOGRAFIA OSSEA TRIFASICA', 3, 'UND', 550.00],
+      ['LOTE 01 - MEDICINA NUCLEAR', '0002', 'CINTILOGRAFIA COM HEMACIAS MARCADAS', 3, 'UND', 660.00],
+      ['LOTE 01 - MEDICINA NUCLEAR', '0003', 'IODOTERAPIA 15 MCI', 3, 'UND', 1485.00],
+      ['LOTE 02 - EXAMES OFTALMOLOGICOS', '0004', 'CONSULTA OFTALMOLOGICA', 1000, 'Cons', 95.00],
+      ['LOTE 02 - EXAMES OFTALMOLOGICOS', '0005', 'ANGIOGRAFIA FLUORESCEINA', 100, 'UND', 400.00],
+      ['LOTE 02 - EXAMES OFTALMOLOGICOS', '0006', 'BIOMETRIA (MONOCULAR)', 300, 'UND', 60.00],
+    ]);
+    ws['!cols'] = [{wch:32},{wch:8},{wch:42},{wch:14},{wch:12},{wch:18}];
+    XLSX.utils.book_append_sheet(wb, ws, 'Itens');
 
-  XLSX.writeFile(wb, 'modelo_itens_por_lote.xlsx');
+    const wsInstr = XLSX.utils.aoa_to_sheet([
+      ['Como usar este modelo — processo por LOTE'],
+      [''],
+      ['- Cada linha é UM item. Preencha o nome do lote na coluna "Lote" para cada item que pertence a ele.'],
+      ['- Você pode colocar quantos lotes quiser: basta repetir o mesmo nome de lote nas linhas dos itens que pertencem a ele.'],
+      ['- Lotes com nomes novos são criados automaticamente na importação — não precisa cadastrar o lote antes.'],
+      ['- Se dois itens de lotes diferentes tiverem o mesmo código "Item", ajuste os códigos para não se sobrescreverem.'],
+      ['- Deixe a coluna "Lote" em branco para um item que não pertence a nenhum lote.'],
+      ['- Este processo está configurado como julgamento por lote — por isso este modelo inclui a coluna "Lote".'],
+    ]);
+    wsInstr['!cols'] = [{wch:95}];
+    XLSX.utils.book_append_sheet(wb, wsInstr, 'Instrucoes');
+
+    XLSX.writeFile(wb, 'modelo_itens_por_lote.xlsx');
+  } else {
+    // Processo por item (sem lote): modelo simples, sem coluna de lote
+    const ws = XLSX.utils.aoa_to_sheet([
+      ['Item', 'Descricao', 'Quantidade', 'Unidade', 'Valor Unitario'],
+      ['0001', 'CONSULTA OFTALMOLOGICA', 1000, 'Cons', 95.00],
+      ['0002', 'ANGIOGRAFIA FLUORESCEINA', 100, 'UND', 400.00],
+      ['0003', 'BIOMETRIA (MONOCULAR)', 300, 'UND', 60.00],
+    ]);
+    ws['!cols'] = [{wch:8},{wch:42},{wch:14},{wch:12},{wch:18}];
+    XLSX.utils.book_append_sheet(wb, ws, 'Itens');
+
+    const wsInstr = XLSX.utils.aoa_to_sheet([
+      ['Como usar este modelo'],
+      [''],
+      ['- Cada linha é UM item do processo de credenciamento.'],
+      ['- A coluna "Item" é o código do item; se deixar em branco, um código sequencial é gerado automaticamente na importação.'],
+      ['- Preencha "Quantidade" e "Valor Unitario" com números (use ponto ou vírgula para casas decimais).'],
+      ['- Se este processo for do tipo "Por Lote", use o botão "Baixar modelo Excel" novamente após selecionar esse tipo — o modelo passa a incluir a coluna "Lote".'],
+    ]);
+    wsInstr['!cols'] = [{wch:95}];
+    XLSX.utils.book_append_sheet(wb, wsInstr, 'Instrucoes');
+
+    XLSX.writeFile(wb, 'modelo_itens.xlsx');
+  }
 }
 
 // ---- IMPORT LOTES EXCEL ----
