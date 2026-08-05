@@ -478,6 +478,9 @@
             <div class="field"><label>Objeto do processo</label><textarea id="proc-objeto" style="width:100%;height:60px;resize:vertical" placeholder="Ex: Credenciamento de pessoas jurídicas para prestação de serviços especializados de saúde..."></textarea></div>
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
               <div class="field"><label>Data de abertura</label><input type="date" id="proc-data-abertura" style="width:100%"></div>
+              <div class="field"><label>Data de homologação</label><input type="date" id="proc-data-homologacao" style="width:100%"></div>
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
               <div class="field"><label>Status</label>
                 <select id="proc-status" style="width:100%">
                   <option value="em_andamento">Em andamento</option>
@@ -705,6 +708,7 @@
     <div class="card" style="margin-bottom:16px">
       <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
         <div class="card-title" style="margin-bottom:0">Divisão de quantitativos por item</div>
+        <input id="divisao-busca" placeholder="&#128269; Buscar item..." style="font-size:13px;padding:6px 10px;width:200px" oninput="renderDivisao(this.value)">
         <div id="divisao-botoes" style="display:flex;gap:8px;flex-wrap:wrap">
           <button class="btn" onclick="dividirIgual()">&#9776; Dividir igualmente</button>
           <button class="btn" onclick="dividirProporcional()">&#9878; Divisão proporcional</button>
@@ -1048,6 +1052,7 @@ function localToDB(p) {
     status: p.status || 'em_andamento',
     obs: p.obs || '',
     data_abertura: p.dataAbertura || null,
+    data_homologacao: p.dataHomologacao || null,
     itens: p.itens || [],
     empresas: p.empresas || [],
     divisoes: p.divisoes || {},
@@ -1070,6 +1075,7 @@ function dbToLocal(d) {
     status: d.status || 'em_andamento',
     obs: d.obs || '',
     dataAbertura: d.data_abertura || '',
+    dataHomologacao: d.data_homologacao || '',
     itens: d.itens || [],
     empresas: d.empresas || [],
     divisoes: d.divisoes || {},
@@ -1125,6 +1131,7 @@ function abrirModalNovoProcesso(id) {
     atualizarDescricaoTipo();
     document.getElementById('proc-objeto').value = p.objeto || '';
     document.getElementById('proc-data-abertura').value = p.dataAbertura || '';
+    document.getElementById('proc-data-homologacao').value = p.dataHomologacao || '';
     document.getElementById('proc-status').value = p.status || 'em_andamento';
     document.getElementById('proc-obs').value = p.obs || '';
     modal.dataset.editId = id;
@@ -1135,6 +1142,7 @@ function abrirModalNovoProcesso(id) {
     atualizarDescricaoTipo();
     document.getElementById('proc-objeto').value = '';
     document.getElementById('proc-data-abertura').value = '';
+    document.getElementById('proc-data-homologacao').value = '';
     document.getElementById('proc-status').value = 'em_andamento';
     delete modal.dataset.editId;
   }
@@ -1156,6 +1164,7 @@ async function confirmarProcesso() {
   const tipoJulgamento = document.getElementById('proc-tipo-julgamento').value;
   const objeto = document.getElementById('proc-objeto').value.trim();
   const dataAbertura = document.getElementById('proc-data-abertura').value;
+  const dataHomologacao = document.getElementById('proc-data-homologacao').value;
   const status = document.getElementById('proc-status').value;
   const obs = document.getElementById('proc-obs').value.trim();
   if (!numero) { alert('Informe o número do processo.'); return; }
@@ -1167,7 +1176,7 @@ async function confirmarProcesso() {
   if (editId) {
     const idx = lista.findIndex(p => p.id === editId);
     if (idx >= 0) {
-      lista[idx] = { ...lista[idx], numero, orgao, municipio, logo, tipoJulgamento, objeto, dataAbertura, status, obs, atualizadoEm: new Date().toISOString() };
+      lista[idx] = { ...lista[idx], numero, orgao, municipio, logo, tipoJulgamento, objeto, dataAbertura, dataHomologacao, status, obs, atualizadoEm: new Date().toISOString() };
       try {
         await atualizarProcessoDB(lista[idx]);
       } catch(err) {
@@ -1187,7 +1196,7 @@ async function confirmarProcesso() {
   } else {
     const novo = {
       id: 'p' + Date.now(),
-      numero, orgao, municipio, logo, tipoJulgamento, objeto, dataAbertura, status, obs,
+      numero, orgao, municipio, logo, tipoJulgamento, objeto, dataAbertura, dataHomologacao, status, obs,
       lotes: [],
       criadoEm: new Date().toISOString(),
       atualizadoEm: new Date().toISOString(),
@@ -2475,7 +2484,7 @@ function sincronizarAlocacaoSemDivisao() {
   });
 }
 
-function renderDivisao() {
+function renderDivisao(filtro) {
   sincronizarAlocacaoSemDivisao();
   const semDivisao = !isDivisao();
   const botoesEl = document.getElementById('divisao-botoes');
@@ -2484,8 +2493,14 @@ function renderDivisao() {
   if (infoEl) infoEl.style.display = semDivisao ? 'block' : 'none';
   const c = document.getElementById('divisao-container');
   if (!itens.length) { c.innerHTML = '<p class="empty">Nenhum item cadastrado ainda.</p>'; return; }
+  const buscaEl = document.getElementById('divisao-busca');
+  const termo = (filtro !== undefined ? filtro : (buscaEl ? buscaEl.value : '')).trim().toLowerCase();
+  const itensFiltrados = termo
+    ? itens.filter(it => it.desc.toLowerCase().includes(termo) || String(it.cod).toLowerCase().includes(termo))
+    : itens;
+  if (!itensFiltrados.length) { c.innerHTML = '<p class="empty">Nenhum item encontrado para essa busca.</p>'; return; }
   let html = '';
-  itens.forEach(it => {
+  itensFiltrados.forEach(it => {
     if (!divisoes[it.cod]) divisoes[it.cod] = {};
     const emps = it.empIds.map(id => empresas.find(e => e.id === id)).filter(Boolean);
     const vtotal = it.qtde * it.vunit;
@@ -2509,9 +2524,9 @@ function renderDivisao() {
           <span>${esc(e.nome.split(' ').slice(0,4).join(' '))}</span>
           ${badgeSit}
         </div>
-        <div class="progress-bar"><div class="progress-fill" id="pf-${it.cod}-${e.id}" style="width:${pct.toFixed(1)}%;background:${inativa?'var(--text3)':''}"></div></div>
+        <div class="progress-bar" style="${readOnly ? '' : 'cursor:pointer;'}" ${readOnly ? '' : `onmousedown="iniciarArrastoDivisao(event,'${it.cod}','${e.id}',${it.qtde})" ontouchstart="iniciarArrastoDivisao(event,'${it.cod}','${e.id}',${it.qtde})"`} title="${readOnly ? '' : 'Arraste para ajustar a quantidade'}"><div class="progress-fill" id="pf-${it.cod}-${e.id}" style="width:${pct.toFixed(1)}%;background:${inativa?'var(--text3)':''}"></div></div>
         <span id="pct-${it.cod}-${e.id}" style="font-size:11px;color:var(--text2);width:42px;text-align:right">${pct.toFixed(0)}%</span>
-        <input type="number" min="0" max="${it.qtde * 2}" step="1" value="${qtdE}"
+        <input type="number" min="0" max="${it.qtde * 2}" step="1" value="${qtdE}" id="inp-${it.cod}-${e.id}"
           style="width:90px;${readOnly?'background:var(--bg2);color:var(--text3);cursor:not-allowed;':''}"
           ${readOnly ? `disabled title="${inativa ? 'Empresa inabilitada/desclassificada' : 'Modalidade sem divisão — quantitativo integral automático'}"` : `onchange="setDivisao('${it.cod}','${e.id}',this.value)" oninput="inputDivisao('${it.cod}','${e.id}',this.value)"`}>
         <div id="val-${it.cod}-${e.id}" style="width:120px;font-size:12px;color:var(--text2);text-align:right">${fmt(vEmp)}</div>
@@ -2534,6 +2549,47 @@ function renderDivisao() {
 // Só atualiza os elementos da própria linha/card (via id), sem recriar o
 // HTML da tela — isso evita perder o foco do campo e o scroll "pular"
 // para o topo enquanto o usuário ainda está digitando.
+// Permite ajustar a quantidade arrastando a barra verde (além de digitar
+// diretamente no campo). Funciona com mouse e toque.
+function iniciarArrastoDivisao(ev, cod, empId, maxQtde) {
+  ev.preventDefault();
+  const bar = ev.currentTarget;
+  const input = document.getElementById(`inp-${cod}-${empId}`);
+
+  const calcularQtd = (clientX) => {
+    const rect = bar.getBoundingClientRect();
+    let pct = rect.width > 0 ? (clientX - rect.left) / rect.width : 0;
+    pct = Math.max(0, Math.min(1, pct));
+    return Math.round(pct * maxQtde);
+  };
+
+  const aplicar = (clientX) => {
+    const qtd = calcularQtd(clientX);
+    if (input) input.value = qtd;
+    inputDivisao(cod, empId, qtd);
+  };
+
+  const onMouseMove = (e) => aplicar(e.clientX);
+  const onTouchMove = (e) => { if (e.touches[0]) { aplicar(e.touches[0].clientX); e.preventDefault(); } };
+
+  const finalizar = () => {
+    document.removeEventListener('mousemove', onMouseMove);
+    document.removeEventListener('mouseup', finalizar);
+    document.removeEventListener('touchmove', onTouchMove);
+    document.removeEventListener('touchend', finalizar);
+    if (input) setDivisao(cod, empId, input.value);
+  };
+
+  document.addEventListener('mousemove', onMouseMove);
+  document.addEventListener('mouseup', finalizar);
+  document.addEventListener('touchmove', onTouchMove, { passive: false });
+  document.addEventListener('touchend', finalizar);
+
+  // Aplica a posição inicial do clique/toque imediatamente
+  if (ev.type === 'touchstart') { if (ev.touches[0]) aplicar(ev.touches[0].clientX); }
+  else aplicar(ev.clientX);
+}
+
 function inputDivisao(cod, empId, val) {
   if (!divisoes[cod]) divisoes[cod] = {};
   const qtdE = Math.max(0, parseFloat(val) || 0);
@@ -3296,6 +3352,7 @@ function buildConsolidado() {
   const pNumero = processo ? processo.numero || '' : '';
   const pObjeto = processo && processo.objeto ? processo.objeto : '';
   const pData = processo && processo.dataAbertura ? new Date(processo.dataAbertura + 'T12:00:00').toLocaleDateString('pt-BR') : '';
+  const pDataHom = processo && processo.dataHomologacao ? new Date(processo.dataHomologacao + 'T12:00:00').toLocaleDateString('pt-BR') : '';
   const totalItensRel = itens.length;
   const totalEmpresasRel = empresas.length;
   const totalValorRel = itens.reduce((s,i) => s + i.qtde*i.vunit, 0);
@@ -3315,6 +3372,7 @@ function buildConsolidado() {
       <div><div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:0.5px">Empresas</div><div style="font-size:16px;font-weight:700">${totalEmpresasRel}</div></div>
       <div><div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:0.5px">Valor total</div><div style="font-size:16px;font-weight:700;color:var(--accent)">${fmt(totalValorRel)}</div></div>
       ${pData ? `<div><div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:0.5px">Abertura</div><div style="font-size:16px;font-weight:700">${pData}</div></div>` : ''}
+      ${pDataHom ? `<div><div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:0.5px">Homologação</div><div style="font-size:16px;font-weight:700">${pDataHom}</div></div>` : ''}
     </div>
   </div>`;
 
