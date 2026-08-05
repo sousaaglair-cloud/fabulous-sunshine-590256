@@ -904,6 +904,22 @@ const SUPA_URL = 'https://mpgwgiajercrukuinnnt.supabase.co';
 const SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1wZ3dnaWFqZXJjcnVrdWlubm50Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI1MDM2NDYsImV4cCI6MjA5ODA3OTY0Nn0.CyWIkq98vCELYbMpQhJmO8Dpd5HWP4DvlRLNMBewnZY';
 const supa = supabase.createClient(SUPA_URL, SUPA_KEY);
 
+// Escapa texto vindo de usuários (nomes de empresa, descrições de item,
+// CNPJ, e-mail, endereço, objeto do processo, dados importados de
+// planilhas, etc.) antes de inserir em innerHTML. Sem isso, um valor
+// como "<img src=x onerror=...>" cadastrado por um usuário rodaria no
+// navegador de qualquer outra pessoa que visualizasse esse dado (XSS
+// armazenado), já que boa parte é compartilhada entre usuários.
+function esc(v) {
+  if (v === null || v === undefined) return '';
+  return String(v)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
 let itens = [];
 let empresas = [];
 let divisoes = {};
@@ -1380,7 +1396,7 @@ function renderListaProcessos() {
     empty.style.display = 'none';
     container.innerHTML = `<div style="text-align:center;padding:50px 20px;color:var(--text3)">
       <div style="font-size:36px;margin-bottom:12px">&#128269;</div>
-      <div style="font-size:14px;color:var(--text2)">Nenhum processo encontrado para "${buscaInput ? buscaInput.value : ''}".</div>
+      <div style="font-size:14px;color:var(--text2)">Nenhum processo encontrado para "${esc(buscaInput ? buscaInput.value : '')}".</div>
     </div>`;
     return;
   }
@@ -1420,11 +1436,11 @@ function renderListaProcessos() {
       return `<div class="proc-card" onclick="abrirProcesso('${p.id}')">
         <div class="proc-icon">📁</div>
         <div class="proc-info">
-          <div class="proc-nome">${p.numero}</div>
+          <div class="proc-nome">${esc(p.numero)}</div>
           ${(p.orgao||p.municipio) ? `<div class="proc-meta" style="margin-top:3px">
-            ${[p.orgao,p.municipio].filter(Boolean).join(' · ')}
+            ${esc([p.orgao,p.municipio].filter(Boolean).join(' · '))}
           </div>` : ''}
-          ${p.objeto ? `<div style="font-size:12px;color:var(--text2);margin-top:3px;overflow:hidden;display:-webkit-box;-webkit-line-clamp:1;-webkit-box-orient:vertical;">${p.objeto}</div>` : ''}
+          ${p.objeto ? `<div style="font-size:12px;color:var(--text2);margin-top:3px;overflow:hidden;display:-webkit-box;-webkit-line-clamp:1;-webkit-box-orient:vertical;">${esc(p.objeto)}</div>` : ''}
           <div style="margin-top:8px;display:flex;align-items:center;gap:8px;flex-wrap:wrap">
             ${statusLabel(p.status)}
             <span style="font-size:11px;color:var(--text3)">${nItens} itens · ${nEmp} empresas · <strong style="color:var(--text2)">${fmt(vTotal)}</strong></span>
@@ -1695,8 +1711,8 @@ function renderVinculacao() {
   const rows = itens.map((it, idx) => {
     const checkboxes = empresas.map(e => {
       const checked = it.empIds.includes(e.id) ? 'checked' : '';
-      const nomeAbrev = e.nome.length > 35 ? e.nome.substring(0, 33) + '…' : e.nome;
-      return `<label class="vinc-label" title="${e.nome}">
+      const nomeAbrev = esc(e.nome.length > 35 ? e.nome.substring(0, 33) + '…' : e.nome);
+      return `<label class="vinc-label" title="${esc(e.nome)}">
         <input type="checkbox" class="vinc-cb" ${checked}
           onchange="toggleVinculacao('${it.cod}','${e.id}',this.checked)">
         <span class="vinc-emp-nome">${nomeAbrev}</span>
@@ -1706,9 +1722,9 @@ function renderVinculacao() {
     const countVinc = it.empIds.length;
     const rowBg = idx % 2 === 0 ? '' : 'background:var(--bg2)';
     return `<tr style="${rowBg}">
-      <td class="vinc-cod" style="width:60px;vertical-align:top;padding-top:12px">${it.cod}</td>
+      <td class="vinc-cod" style="width:60px;vertical-align:top;padding-top:12px">${esc(it.cod)}</td>
       <td class="vinc-desc-cell" style="width:220px;vertical-align:top;padding-top:12px">
-        <div class="vinc-desc">${it.desc}</div>
+        <div class="vinc-desc">${esc(it.desc)}</div>
         <div class="vinc-count" id="vinc-count-${it.cod}">${countVinc} empresa(s)</div>
       </td>
       <td style="vertical-align:top;padding:8px 12px">
@@ -1749,8 +1765,8 @@ function renderVinculacaoPorLote(container) {
     const its = itens.filter(it => it.loteId === l.id);
     const checkboxes = empresas.map(e => {
       const checked = (l.empIds || []).includes(e.id) ? 'checked' : '';
-      const nomeAbrev = e.nome.length > 35 ? e.nome.substring(0, 33) + '…' : e.nome;
-      return `<label class="vinc-label" title="${e.nome}">
+      const nomeAbrev = esc(e.nome.length > 35 ? e.nome.substring(0, 33) + '…' : e.nome);
+      return `<label class="vinc-label" title="${esc(e.nome)}">
         <input type="checkbox" class="vinc-cb" ${checked} onchange="toggleVinculacaoLote('${l.id}','${e.id}',this.checked)">
         <span class="vinc-emp-nome">${nomeAbrev}</span>
       </label>`;
@@ -1759,7 +1775,7 @@ function renderVinculacaoPorLote(container) {
     return `<div class="card" style="overflow:hidden">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;flex-wrap:wrap;gap:8px">
         <div style="min-width:0;overflow-wrap:anywhere">
-          <div style="font-weight:700">&#128230; ${l.nome}</div>
+          <div style="font-weight:700">&#128230; ${esc(l.nome)}</div>
           <div style="font-size:11px;color:var(--text3)">${its.length} item(ns) neste lote</div>
         </div>
         <div style="display:flex;gap:6px;flex-shrink:0">
@@ -1895,13 +1911,13 @@ function linhaItemHtml(i) {
   const vtotal = i.qtde * i.vunit;
   const empNames = i.empIds.map(id => {
     const e = empresas.find(x => x.id === id);
-    return e ? `<span class="badge">${e.nome.split(' ').slice(0, 2).join(' ')}</span>` : '';
+    return e ? `<span class="badge">${esc(e.nome.split(' ').slice(0, 2).join(' '))}</span>` : '';
   }).join('');
   return `<tr>
-    <td style="font-weight:600;color:var(--info-text)">${i.cod}</td>
-    <td>${i.desc}</td>
+    <td style="font-weight:600;color:var(--info-text)">${esc(i.cod)}</td>
+    <td>${esc(i.desc)}</td>
     <td>${i.qtde.toLocaleString('pt-BR')}</td>
-    <td style="color:var(--text2)">${i.und}</td>
+    <td style="color:var(--text2)">${esc(i.und)}</td>
     <td>${fmt(i.vunit)}</td>
     <td style="font-weight:600">${fmt(vtotal)}</td>
     <td>${empNames || '<span style="color:var(--text3);font-size:12px">nenhuma</span>'}</td>
@@ -1942,15 +1958,15 @@ function renderItensPorLote(tbody, filter = '') {
     const valorTotal = getLoteValorTotal(l.id);
     const empNomes = (l.empIds || []).map(id => {
       const e = empresas.find(x => x.id === id);
-      return e ? e.nome.split(' ').slice(0, 2).join(' ') : '';
+      return e ? esc(e.nome.split(' ').slice(0, 2).join(' ')) : '';
     }).filter(Boolean);
 
     html += `<tr style="background:var(--bg2)">
       <td colspan="8" style="padding:10px 12px">
         <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
           <div>
-            <span style="font-weight:700">&#128230; ${l.nome}</span>
-            ${l.descricao ? `<span style="color:var(--text3);font-size:12px;margin-left:8px">${l.descricao}</span>` : ''}
+            <span style="font-weight:700">&#128230; ${esc(l.nome)}</span>
+            ${l.descricao ? `<span style="color:var(--text3);font-size:12px;margin-left:8px">${esc(l.descricao)}</span>` : ''}
             <div style="font-size:11px;color:var(--text3);margin-top:2px">${its.length} item(ns) &middot; ${fmt(valorTotal)} &middot; Empresas: ${empNomes.length ? empNomes.join(', ') : 'nenhuma'}</div>
           </div>
           <div style="white-space:nowrap">
@@ -2029,11 +2045,11 @@ function buscarEmpresaBanco() {
 
   let html = resultados.map(e => `
     <div class="sugestao-item" onclick="selecionarEmpresaBanco('${e.id}')">
-      <span class="sug-nome">${e.nome}</span>
-      <span class="sug-cnpj">${e.cnpj || ''}</span>
+      <span class="sug-nome">${esc(e.nome)}</span>
+      <span class="sug-cnpj">${esc(e.cnpj) || ''}</span>
     </div>`).join('');
 
-  html += `<div class="sugestao-nova" onclick="abrirModalNovaEmpresa()">+ Cadastrar "${document.getElementById('e-busca').value.trim()}" como nova empresa</div>`;
+  html += `<div class="sugestao-nova" onclick="abrirModalNovaEmpresa()">+ Cadastrar "${esc(document.getElementById('e-busca').value.trim())}" como nova empresa</div>`;
   box.innerHTML = html;
   box.style.display = 'block';
 }
@@ -2223,8 +2239,8 @@ function renderBancoEmpresas() {
   tbody.innerHTML = lista.map((e, i) => `
     <tr>
       <td style="color:var(--text3)">${i+1}</td>
-      <td style="font-weight:600">${e.nome}</td>
-      <td style="font-size:12px;color:var(--text2)">${e.cnpj || '—'}</td>
+      <td style="font-weight:600">${esc(e.nome)}</td>
+      <td style="font-size:12px;color:var(--text2)">${esc(e.cnpj) || '—'}</td>
       <td style="font-size:12px;color:var(--text2)">—</td>
       <td>
         <button class="btn danger sm" onclick="confirmarExcluirBanco('${e.id}')">&#10005;</button>
@@ -2365,8 +2381,8 @@ function renderEmpresas() {
     return `<tr>
       <td><input type="checkbox" class="emp-check" data-id="${e.id}" onchange="atualizarBotaoRemoverSel()" style="cursor:pointer;width:16px;height:16px"></td>
       <td style="color:var(--text3)">${idx + 1}</td>
-      <td style="font-weight:600">${e.nome}</td>
-      <td style="font-size:12px;color:var(--text2)">${e.cnpj || '—'}</td>
+      <td style="font-weight:600">${esc(e.nome)}</td>
+      <td style="font-size:12px;color:var(--text2)">${esc(e.cnpj) || '—'}</td>
       <td>${badgeSituacaoEmpresa(e)}</td>
       <td style="color:var(--text2)">${itensCnt} item(s)</td>
       <td style="font-weight:600">${fmt(total)}</td>
@@ -2475,10 +2491,10 @@ function renderDivisao() {
     const totalDiv = emps.reduce((s, e) => s + (divisoes[it.cod][e.id] || 0), 0);
     const diff = it.qtde - totalDiv;
     const alertHtml = semDivisao
-      ? `<div class="alert ok" id="alerta-${it.cod}" style="margin-bottom:10px">&#10003; ${emps.length} empresa(s) credenciada(s) recebendo o quantitativo integral (${it.qtde} ${it.und} cada, sem divisão — Art. 79, Inciso II)</div>`
+      ? `<div class="alert ok" id="alerta-${it.cod}" style="margin-bottom:10px">&#10003; ${emps.length} empresa(s) credenciada(s) recebendo o quantitativo integral (${it.qtde} ${esc(it.und)} cada, sem divisão — Art. 79, Inciso II)</div>`
       : diff !== 0
       ? `<div class="alert warn" id="alerta-${it.cod}" style="margin-bottom:10px">&#9888; Faltam alocar <strong>${Math.abs(diff)}</strong> unidade(s) ${diff > 0 ? '' : '(excesso)'} — total do item: ${it.qtde}</div>`
-      : `<div class="alert ok" id="alerta-${it.cod}" style="margin-bottom:10px">&#10003; Quantitativo completo (${it.qtde} ${it.und})</div>`;
+      : `<div class="alert ok" id="alerta-${it.cod}" style="margin-bottom:10px">&#10003; Quantitativo completo (${it.qtde} ${esc(it.und)})</div>`;
 
     const rowsHtml = emps.length ? emps.map(e => {
       const qtdE = divisoes[it.cod][e.id] || 0;
@@ -2488,8 +2504,8 @@ function renderDivisao() {
       const badgeSit = inativa ? `<span style="font-size:10px;padding:1px 6px;border-radius:10px;font-weight:600;background:${e.situacao==='inabilitada'?'var(--warn-bg)':'var(--danger-bg)'};color:${e.situacao==='inabilitada'?'var(--warn-text)':'var(--danger-text)'};border:1px solid ${e.situacao==='inabilitada'?'var(--warn-border)':'var(--danger-border)'};">${e.situacao==='inabilitada'?'Inabilitada':'Desclassificada'}</span>` : '';
       const readOnly = inativa || semDivisao;
       return `<div class="division-row" style="${inativa ? 'opacity:0.55' : ''}">
-        <div class="emp-name-short" title="${e.nome}" style="display:flex;flex-direction:column;gap:2px">
-          <span>${e.nome.split(' ').slice(0,4).join(' ')}</span>
+        <div class="emp-name-short" title="${esc(e.nome)}" style="display:flex;flex-direction:column;gap:2px">
+          <span>${esc(e.nome.split(' ').slice(0,4).join(' '))}</span>
           ${badgeSit}
         </div>
         <div class="progress-bar"><div class="progress-fill" id="pf-${it.cod}-${e.id}" style="width:${pct.toFixed(1)}%;background:${inativa?'var(--text3)':''}"></div></div>
@@ -2503,8 +2519,8 @@ function renderDivisao() {
 
     html += `<div class="card">
       <div style="display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:10px">
-        <div><span style="font-weight:700;color:var(--info-text)">[${it.cod}]</span> <span style="font-weight:500">${it.desc}</span></div>
-        <div style="font-size:12px;color:var(--text2);text-align:right">Qtde: <strong>${it.qtde.toLocaleString('pt-BR')} ${it.und}</strong> &nbsp;|&nbsp; Total: <strong>${fmt(vtotal)}</strong></div>
+        <div><span style="font-weight:700;color:var(--info-text)">[${esc(it.cod)}]</span> <span style="font-weight:500">${esc(it.desc)}</span></div>
+        <div style="font-size:12px;color:var(--text2);text-align:right">Qtde: <strong>${it.qtde.toLocaleString('pt-BR')} ${esc(it.und)}</strong> &nbsp;|&nbsp; Total: <strong>${fmt(vtotal)}</strong></div>
       </div>
       ${alertHtml}
       ${rowsHtml}
@@ -2544,7 +2560,7 @@ function inputDivisao(cod, empId, val) {
       alertEl.innerHTML = `&#9888; Faltam alocar <strong>${Math.abs(diff)}</strong> unidade(s) ${diff > 0 ? '' : '(excesso)'} — total do item: ${it.qtde}`;
     } else {
       alertEl.className = 'alert ok';
-      alertEl.innerHTML = `&#10003; Quantitativo completo (${it.qtde} ${it.und})`;
+      alertEl.innerHTML = `&#10003; Quantitativo completo (${it.qtde} ${esc(it.und)})`;
     }
   }
 }
@@ -2718,10 +2734,10 @@ async function importarCSVResultado(input) {
 
       const totalEmpresas = Object.keys(vinculacoes).length;
       const fracassadosHtml = fracassados.length
-        ? `<div style="margin-top:8px">&#9888; <strong>${fracassados.length}</strong> item(ns) <span style="color:var(--danger-text);font-weight:600">fracassado(s)</span>: ${fracassados.map(c => `<code>${c}</code>`).join(', ')}</div>`
+        ? `<div style="margin-top:8px">&#9888; <strong>${fracassados.length}</strong> item(ns) <span style="color:var(--danger-text);font-weight:600">fracassado(s)</span>: ${fracassados.map(c => `<code>${esc(c)}</code>`).join(', ')}</div>`
         : `<div style="margin-top:8px">&#10003; Nenhum item fracassado.</div>`;
       const naoEncontradosHtml = naoEncontrados.length
-        ? `<div style="margin-top:6px;font-size:12px;color:var(--text3)">&#9432; Códigos não encontrados nos itens do processo: ${naoEncontrados.slice(0,20).map(c => `<code>${c}</code>`).join(', ')}</div>`
+        ? `<div style="margin-top:6px;font-size:12px;color:var(--text3)">&#9432; Códigos não encontrados nos itens do processo: ${naoEncontrados.slice(0,20).map(c => `<code>${esc(c)}</code>`).join(', ')}</div>`
         : '';
 
       document.getElementById('csv-preview').innerHTML = `
@@ -2899,11 +2915,11 @@ function _importItensExcelCore(input, statusElId, previewElId) {
           <table style="font-size:12px;width:100%">
             <thead><tr>${temLote ? '<th>Lote</th>' : ''}<th>Cód.</th><th>Descrição</th><th>Qtde</th><th>Und</th><th>Vl. unit.</th><th>Status</th></tr></thead>
             <tbody>${preview.slice(0,10).map(r => `<tr>
-              ${temLote ? `<td style="color:var(--text2)">${r.loteNome || '—'}</td>` : ''}
-              <td style="font-weight:600;color:var(--info-text)">${r.cod}</td>
-              <td>${r.desc}</td>
+              ${temLote ? `<td style="color:var(--text2)">${esc(r.loteNome) || '—'}</td>` : ''}
+              <td style="font-weight:600;color:var(--info-text)">${esc(r.cod)}</td>
+              <td>${esc(r.desc)}</td>
               <td>${r.qtde.toLocaleString('pt-BR')}</td>
-              <td style="color:var(--text2)">${r.und}</td>
+              <td style="color:var(--text2)">${esc(r.und)}</td>
               <td>${fmt(r.vunit)}</td>
               <td><span style="font-size:11px;padding:2px 8px;border-radius:10px;
                 background:${r.status==='adicionado'?'var(--success-bg)':'var(--info-bg)'};
@@ -3022,8 +3038,8 @@ function importLotesExcel(input) {
           <table style="font-size:12px;width:100%">
             <thead><tr><th>Nome</th><th>Descrição</th><th>Status</th></tr></thead>
             <tbody>${preview.slice(0,10).map(r => `<tr>
-              <td style="font-weight:600">${r.nome}</td>
-              <td style="color:var(--text2)">${r.descricao || '—'}</td>
+              <td style="font-weight:600">${esc(r.nome)}</td>
+              <td style="color:var(--text2)">${esc(r.descricao) || '—'}</td>
               <td><span style="font-size:11px;padding:2px 8px;border-radius:10px;
                 background:${r.status==='adicionado'?'var(--success-bg)':'var(--info-bg)'};
                 color:${r.status==='adicionado'?'var(--success-text)':'var(--info-text)'}">
@@ -3153,8 +3169,8 @@ function importEmpresasExcel(input) {
         previewEl.innerHTML = `<table style="font-size:12px;width:100%">
           <thead><tr><th>Razão social</th><th>CNPJ</th><th>Status</th></tr></thead>
           <tbody>${preview.slice(0,20).map(r => `<tr>
-            <td>${r.nome}</td>
-            <td style="color:var(--text2)">${r.cnpj||'—'}</td>
+            <td>${esc(r.nome)}</td>
+            <td style="color:var(--text2)">${esc(r.cnpj)||'—'}</td>
             <td><span style="font-size:11px;padding:2px 8px;border-radius:10px;background:${r.status==='adicionada'?'var(--success-bg)':'var(--warn-bg)'};color:${r.status==='adicionada'?'var(--success-text)':'var(--warn-text)'}">${r.status}</span></td>
           </tr>`).join('')}${preview.length>20?`<tr><td colspan="3" style="color:var(--text3);font-size:11px">... e mais ${preview.length-20} linha(s)</td></tr>`:''}</tbody>
         </table>`;
@@ -3203,7 +3219,7 @@ function renderRelatorio() {
   const sel = document.getElementById('rel-emp-select');
   const prevVal = sel.value;
   sel.innerHTML = '<option value="">Todas as empresas</option>' +
-    empresas.map(e => `<option value="${e.id}">${e.nome}</option>`).join('');
+    empresas.map(e => `<option value="${e.id}">${esc(e.nome)}</option>`).join('');
   if (prevVal) sel.value = prevVal;
 
   const container = document.getElementById('rel-content');
@@ -3263,7 +3279,7 @@ function linhaCabecalhoLote(loteNome, loteDescricao, colspan) {
   if (!loteNome) return '';
   return `<tr class="rel-lote-header">
     <td colspan="${colspan}" style="background:var(--bg2);font-weight:700;font-size:12px;color:var(--accent);padding:8px 10px;border-top:2px solid var(--accent)">
-      &#128230; LOTE — ${loteNome}${loteDescricao ? ` <span style="font-weight:400;color:var(--text2)">— ${loteDescricao}</span>` : ''}
+      &#128230; LOTE — ${esc(loteNome)}${loteDescricao ? ` <span style="font-weight:400;color:var(--text2)">— ${esc(loteDescricao)}</span>` : ''}
     </td>
   </tr>`;
 }
@@ -3288,11 +3304,11 @@ function buildConsolidado() {
     ${pLogo ? `<div style="width:120px;height:80px;margin:0 auto 12px;display:flex;align-items:center;justify-content:center">
       <img src="${pLogo}" style="max-width:120px;max-height:80px;object-fit:contain">
     </div>` : ''}
-    <div style="font-size:13px;font-weight:600;color:var(--text);margin-bottom:2px">${pOrgao}</div>
+    <div style="font-size:13px;font-weight:600;color:var(--text);margin-bottom:2px">${esc(pOrgao)}</div>
     <div style="width:40px;height:2px;background:var(--accent);margin:10px auto"></div>
     <div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px">Relatório Consolidado</div>
-    <div style="font-size:15px;font-weight:700;margin-bottom:4px">${pNumero}</div>
-    ${pObjeto ? `<div style="font-size:11px;color:var(--text2);max-width:560px;margin:0 auto 12px;line-height:1.5">${pObjeto}</div>` : ''}
+    <div style="font-size:15px;font-weight:700;margin-bottom:4px">${esc(pNumero)}</div>
+    ${pObjeto ? `<div style="font-size:11px;color:var(--text2);max-width:560px;margin:0 auto 12px;line-height:1.5">${esc(pObjeto)}</div>` : ''}
     <div style="display:flex;justify-content:center;gap:32px;margin-top:16px;padding-top:14px;border-top:1px solid var(--border)">
       <div><div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:0.5px">Itens</div><div style="font-size:16px;font-weight:700">${totalItensRel}</div></div>
       <div><div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:0.5px">Empresas</div><div style="font-size:16px;font-weight:700">${totalEmpresasRel}</div></div>
@@ -3323,9 +3339,9 @@ function buildConsolidado() {
       grandTotal += vtotal;
       grandAlocado += valAloc;
       html += `<tr>
-        <td style="font-weight:600;color:var(--info-text)">${it.cod}</td>
-        <td>${it.desc}</td>
-        <td style="color:var(--text2)">${it.und}</td>
+        <td style="font-weight:600;color:var(--info-text)">${esc(it.cod)}</td>
+        <td>${esc(it.desc)}</td>
+        <td style="color:var(--text2)">${esc(it.und)}</td>
         <td>${it.qtde.toLocaleString('pt-BR')}</td>
         <td style="font-weight:600;color:${ok ? 'var(--success-text)' : 'var(--warn-text)'}">${qtdAloc.toLocaleString('pt-BR')}</td>
         <td><span style="font-size:11px;padding:2px 7px;border-radius:10px;background:${ok ? 'var(--success-bg)' : 'var(--warn-bg)'};color:${ok ? 'var(--success-text)' : 'var(--warn-text)'}">${pct}%</span></td>
@@ -3362,8 +3378,8 @@ function buildConsolidado() {
     const pct = rankTotal > 0 ? (valEmp / rankTotal * 100).toFixed(1) : '0.0';
     html += `<tr>
       <td style="color:var(--text3)">${idx + 1}</td>
-      <td style="font-weight:600">${emp.nome}</td>
-      <td style="font-size:12px;color:var(--text2)">${emp.cnpj || '—'}</td>
+      <td style="font-weight:600">${esc(emp.nome)}</td>
+      <td style="font-size:12px;color:var(--text2)">${esc(emp.cnpj) || '—'}</td>
       <td style="color:var(--text2)">${iVinc}</td>
       <td style="color:var(--text2)">${iAloc}</td>
       <td style="font-weight:700;color:var(--accent)">${fmt(valEmp)}</td>
@@ -3421,9 +3437,9 @@ function buildEmpresaBlock(emp) {
       hasItems = true;
       const ok = qtdAloc >= it.qtde;
       rows += `<tr>
-        <td style="font-weight:600;color:var(--info-text)">${it.cod}</td>
-        <td>${it.desc}</td>
-        <td style="color:var(--text2)">${it.und}</td>
+        <td style="font-weight:600;color:var(--info-text)">${esc(it.cod)}</td>
+        <td>${esc(it.desc)}</td>
+        <td style="color:var(--text2)">${esc(it.und)}</td>
         <td>${it.qtde.toLocaleString('pt-BR')}</td>
         <td style="font-weight:600;color:${ok?'var(--success-text)':'var(--warn-text)'}">${qtdAloc.toLocaleString('pt-BR')}</td>
         <td>${fmt(it.vunit)}</td>
@@ -3445,13 +3461,13 @@ function buildEmpresaBlock(emp) {
       ${pLogoEmp ? `<div style="margin:0 auto 10px;height:60px;display:flex;align-items:center;justify-content:center">
         <img src="${pLogoEmp}" style="max-height:60px;max-width:160px;object-fit:contain">
       </div>` : ''}
-      <div style="font-size:12px;font-weight:600;color:var(--text)">${pOrgaoEmp}</div>
-      <div style="font-size:11px;color:var(--text3);margin-top:2px">${pNumeroEmp}</div>
+      <div style="font-size:12px;font-weight:600;color:var(--text)">${esc(pOrgaoEmp)}</div>
+      <div style="font-size:11px;color:var(--text3);margin-top:2px">${esc(pNumeroEmp)}</div>
     </div>
     <div class="rel-empresa-header">
       <div>
-        <div style="font-weight:700;font-size:14px">${emp.nome} ${badgeSituacaoEmpresa(emp)}</div>
-        <div style="font-size:12px;color:var(--text2);margin-top:2px">${emp.cnpj ? 'CNPJ: ' + emp.cnpj : ''}</div>
+        <div style="font-weight:700;font-size:14px">${esc(emp.nome)} ${badgeSituacaoEmpresa(emp)}</div>
+        <div style="font-size:12px;color:var(--text2);margin-top:2px">${emp.cnpj ? 'CNPJ: ' + esc(emp.cnpj) : ''}</div>
       </div>
       <div style="text-align:right">
         <div style="font-size:11px;color:var(--text2);text-transform:uppercase;letter-spacing:0.3px">Total alocado</div>
@@ -3462,7 +3478,7 @@ function buildEmpresaBlock(emp) {
       <thead><tr><th>Cód.</th><th>Descrição</th><th>Und</th><th>Qtde total</th><th>Qtde alocada</th><th>Vl. unitário</th><th>Vl. total alocado</th></tr></thead>
       <tbody>${rows}</tbody>
       <tfoot><tr class="total-row">
-        <td colspan="6" style="font-weight:700">SUBTOTAL — ${emp.nome.split(' ').slice(0,3).join(' ')}</td>
+        <td colspan="6" style="font-weight:700">SUBTOTAL — ${esc(emp.nome.split(' ').slice(0,3).join(' '))}</td>
         <td style="font-weight:700;color:var(--accent)">${fmt(totalEmp)}</td>
       </tr></tfoot>
     </table></div>
@@ -3473,10 +3489,10 @@ function buildSecaoInabilitadas() {
   const lista = empresas.filter(e => (e.situacao || 'habilitada') !== 'habilitada');
   if (!lista.length) return '';
   const rows = lista.map(e => `<tr>
-    <td style="font-weight:600">${e.nome}</td>
-    <td style="font-size:12px;color:var(--text2)">${e.cnpj || '—'}</td>
+    <td style="font-weight:600">${esc(e.nome)}</td>
+    <td style="font-size:12px;color:var(--text2)">${esc(e.cnpj) || '—'}</td>
     <td>${badgeSituacaoEmpresa(e)}</td>
-    <td style="font-size:12px;color:var(--text2)">${e.motivoSituacao ? e.motivoSituacao : '—'}</td>
+    <td style="font-size:12px;color:var(--text2)">${e.motivoSituacao ? esc(e.motivoSituacao) : '—'}</td>
   </tr>`).join('');
   return `<div class="card rel-section" style="border-color:var(--warn-border)">
     <div style="font-weight:700;font-size:14px;margin-bottom:14px;display:flex;align-items:center;gap:8px;color:var(--warn-text)">
@@ -3676,10 +3692,10 @@ function renderItensModal(filtro) {
         onchange="atualizarContadorMve()">
       <div style="flex:1">
         <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-          <span style="font-size:11px;font-weight:700;color:var(--info-text);background:var(--info-bg);padding:2px 8px;border-radius:10px;border:1px solid var(--info-border)">${it.cod}</span>
-          <span style="font-size:13px;font-weight:500">${it.desc}</span>
+          <span style="font-size:11px;font-weight:700;color:var(--info-text);background:var(--info-bg);padding:2px 8px;border-radius:10px;border:1px solid var(--info-border)">${esc(it.cod)}</span>
+          <span style="font-size:13px;font-weight:500">${esc(it.desc)}</span>
         </div>
-        <div style="font-size:11px;color:var(--text3);margin-top:4px">${it.qtde.toLocaleString('pt-BR')} ${it.und} · ${fmt(it.qtde * it.vunit)}</div>
+        <div style="font-size:11px;color:var(--text3);margin-top:4px">${it.qtde.toLocaleString('pt-BR')} ${esc(it.und)} · ${fmt(it.qtde * it.vunit)}</div>
       </div>
     </label>`;
   }).join('');
@@ -3770,7 +3786,7 @@ function renderLoteSelect() {
   const sel = document.getElementById('i-lote');
   if (!sel) return;
   const atual = sel.value;
-  sel.innerHTML = '<option value="">— Selecione —</option>' + lotes.map(l => `<option value="${l.id}">${l.nome}</option>`).join('');
+  sel.innerHTML = '<option value="">— Selecione —</option>' + lotes.map(l => `<option value="${l.id}">${esc(l.nome)}</option>`).join('');
   if (lotes.find(l => l.id === atual)) sel.value = atual;
 }
 
