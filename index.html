@@ -588,7 +588,7 @@
       </div>
       <div class="scroll-x">
         <table id="tabela-itens">
-          <thead><tr><th>Cód.</th><th>Descrição</th><th>Qtde</th><th>Und</th><th>Vl. unitário</th><th>Vl. total</th><th>Empresas vinculadas</th><th></th></tr></thead>
+          <thead><tr><th>Cód.</th><th>Descrição</th><th>Qtde</th><th>Und</th><th>Vl. unitário</th><th>Vl. total</th><th>Empresas vinculadas</th><th>Situação</th><th></th></tr></thead>
           <tbody id="tbody-itens"></tbody>
         </table>
       </div>
@@ -1923,6 +1923,7 @@ function linhaItemHtml(i) {
     const e = empresas.find(x => x.id === id);
     return e ? `<span class="badge">${esc(e.nome.split(' ').slice(0, 2).join(' '))}</span>` : '';
   }).join('');
+  const semVinculo = !i.empIds.length;
   return `<tr>
     <td style="font-weight:600;color:var(--info-text)">${esc(i.cod)}</td>
     <td>${esc(i.desc)}</td>
@@ -1930,12 +1931,66 @@ function linhaItemHtml(i) {
     <td style="color:var(--text2)">${esc(i.und)}</td>
     <td>${fmt(i.vunit)}</td>
     <td style="font-weight:600">${fmt(vtotal)}</td>
-    <td>${empNames || '<span style="color:var(--text3);font-size:12px">nenhuma</span>'}</td>
+    <td>${empNames || `<span style="color:var(--warn-text);font-size:12px;font-weight:600">&#9888; nenhuma</span>`}</td>
+    <td>${badgeSituacaoItem(i, semVinculo)}</td>
     <td style="white-space:nowrap">
       <button class="btn sm" onclick="editItem('${i.cod}')" title="Editar">&#9998;</button>
       <button class="btn danger sm" onclick="removeItem('${i.cod}')" title="Remover">&#10005;</button>
     </td>
   </tr>`;
+}
+
+// ---- SITUAÇÃO DO ITEM (ativo / cancelado / fracassado — motivo interno / fracassado — sem empresas) ----
+let _situacaoItemCod = null;
+
+function badgeSituacaoItem(it, semVinculo) {
+  const sit = it.situacao || 'ativo';
+  const map = {
+    ativo:       { label: '✓ Ativo',                    bg: 'var(--success-bg)', color: 'var(--success-text)', border: 'var(--success-border)' },
+    cancelado:   { label: '⚫ Cancelado',                bg: 'var(--bg3)',         color: 'var(--text2)',        border: 'var(--border2)'        },
+    fracassado:  { label: '⚠ Fracassado',               bg: 'var(--warn-bg)',     color: 'var(--warn-text)',    border: 'var(--warn-border)'    },
+  };
+  // Se está marcado como "ativo" mas não tem nenhuma empresa vinculada, avisa
+  // visualmente mesmo sem o usuário ter marcado o status manualmente ainda.
+  if (sit === 'ativo' && semVinculo) {
+    return `<span onclick="abrirModalSituacaoItem('${it.cod}')" title="Sem empresas vinculadas — clique para marcar como fracassado" style="cursor:pointer;font-size:11px;padding:2px 8px;border-radius:20px;border:1px solid var(--warn-border);background:var(--warn-bg);color:var(--warn-text);font-weight:600;white-space:nowrap;display:inline-block">&#9888; Sem vínculo</span>`;
+  }
+  const c = map[sit] || map.ativo;
+  return `<span onclick="abrirModalSituacaoItem('${it.cod}')" title="Clique para alterar a situação" style="cursor:pointer;font-size:11px;padding:2px 8px;border-radius:20px;border:1px solid ${c.border};background:${c.bg};color:${c.color};font-weight:600;white-space:nowrap;display:inline-block">${c.label}</span>`;
+}
+
+function abrirModalSituacaoItem(cod) {
+  const it = itens.find(i => i.cod === cod);
+  if (!it) return;
+  _situacaoItemCod = cod;
+  document.getElementById('sit-item-nome').textContent = `[${it.cod}] ${it.desc}`;
+  // Se ainda não tem situação definida e não tem empresa vinculada, sugere "fracassado" direto
+  const sugestao = it.situacao || (!it.empIds.length ? 'fracassado' : 'ativo');
+  document.getElementById('sit-item-status').value = sugestao;
+  document.getElementById('sit-item-motivo').value = it.motivoSituacao || '';
+  document.getElementById('modal-situacao-item').classList.remove('hidden');
+}
+
+function fecharModalSituacaoItem() {
+  document.getElementById('modal-situacao-item').classList.add('hidden');
+  _situacaoItemCod = null;
+}
+
+function salvarSituacaoItem() {
+  const it = itens.find(i => i.cod === _situacaoItemCod);
+  if (!it) return;
+  const novaSit = document.getElementById('sit-item-status').value;
+  const motivo = document.getElementById('sit-item-motivo').value.trim();
+  if (novaSit === 'cancelado' && !motivo) {
+    alert('Informe o motivo do cancelamento.');
+    return;
+  }
+  it.situacao = novaSit === 'ativo' ? undefined : novaSit;
+  it.motivoSituacao = motivo;
+  fecharModalSituacaoItem();
+  renderItens();
+  updateMetrics();
+  salvarProcesso(false);
 }
 
 function renderItens(filter = '') {
@@ -1950,7 +2005,7 @@ function renderItens(filter = '') {
 
   const filtered = itens.filter(i => !f || i.desc.toLowerCase().includes(f) || i.cod.includes(f));
   if (!filtered.length) {
-    tbody.innerHTML = `<tr><td colspan="8" class="empty">Nenhum item encontrado.</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="9" class="empty">Nenhum item encontrado.</td></tr>`;
     return;
   }
   tbody.innerHTML = filtered.map(linhaItemHtml).join('');
@@ -1972,7 +2027,7 @@ function renderItensPorLote(tbody, filter = '') {
     }).filter(Boolean);
 
     html += `<tr style="background:var(--bg2)">
-      <td colspan="8" style="padding:10px 12px">
+      <td colspan="9" style="padding:10px 12px">
         <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
           <div>
             <span style="font-weight:700">&#128230; ${esc(l.nome)}</span>
@@ -1990,17 +2045,17 @@ function renderItensPorLote(tbody, filter = '') {
 
     html += its.length
       ? its.map(linhaItemHtml).join('')
-      : `<tr><td colspan="8" class="empty" style="padding:10px 20px">Nenhum item neste lote ainda. Adicione um item acima selecionando este lote.</td></tr>`;
+      : `<tr><td colspan="9" class="empty" style="padding:10px 20px">Nenhum item neste lote ainda. Adicione um item acima selecionando este lote.</td></tr>`;
   });
 
   let semLote = itens.filter(it => !it.loteId);
   if (f) semLote = semLote.filter(i => i.desc.toLowerCase().includes(f) || i.cod.includes(f));
   if (semLote.length) {
-    html += `<tr style="background:var(--bg2)"><td colspan="8" style="padding:10px 12px"><span style="font-weight:700;color:var(--text3)">&#128203; Sem lote atribuído</span></td></tr>`;
+    html += `<tr style="background:var(--bg2)"><td colspan="9" style="padding:10px 12px"><span style="font-weight:700;color:var(--text3)">&#128203; Sem lote atribuído</span></td></tr>`;
     html += semLote.map(linhaItemHtml).join('');
   }
 
-  if (!html) html = `<tr><td colspan="8" class="empty">${lotes.length ? 'Nenhum item encontrado.' : 'Nenhum lote cadastrado ainda. Clique em "+ Novo lote" acima para começar.'}</td></tr>`;
+  if (!html) html = `<tr><td colspan="9" class="empty">${lotes.length ? 'Nenhum item encontrado.' : 'Nenhum lote cadastrado ainda. Clique em "+ Novo lote" acima para começar.'}</td></tr>`;
   tbody.innerHTML = html;
 }
 
@@ -2493,13 +2548,18 @@ function renderDivisao(filtro) {
   if (infoEl) infoEl.style.display = semDivisao ? 'block' : 'none';
   const c = document.getElementById('divisao-container');
   if (!itens.length) { c.innerHTML = '<p class="empty">Nenhum item cadastrado ainda.</p>'; return; }
+  const itensDivisiveis = itens.filter(it => !it.situacao || it.situacao === 'ativo');
+  const excluidos = itens.length - itensDivisiveis.length;
+  if (!itensDivisiveis.length) { c.innerHTML = '<p class="empty">Todos os itens estão cancelados ou fracassados — nada a dividir. Veja na aba Itens.</p>'; return; }
   const buscaEl = document.getElementById('divisao-busca');
   const termo = (filtro !== undefined ? filtro : (buscaEl ? buscaEl.value : '')).trim().toLowerCase();
   const itensFiltrados = termo
-    ? itens.filter(it => it.desc.toLowerCase().includes(termo) || String(it.cod).toLowerCase().includes(termo))
-    : itens;
+    ? itensDivisiveis.filter(it => it.desc.toLowerCase().includes(termo) || String(it.cod).toLowerCase().includes(termo))
+    : itensDivisiveis;
   if (!itensFiltrados.length) { c.innerHTML = '<p class="empty">Nenhum item encontrado para essa busca.</p>'; return; }
-  let html = '';
+  let html = excluidos
+    ? `<p style="font-size:12px;color:var(--text3);margin-bottom:12px">&#8505; ${excluidos} item(ns) cancelado(s)/fracassado(s) não aparece(m) aqui — veja na aba Itens.</p>`
+    : '';
   itensFiltrados.forEach(it => {
     if (!divisoes[it.cod]) divisoes[it.cod] = {};
     const emps = it.empIds.map(id => empresas.find(e => e.id === id)).filter(Boolean);
@@ -3454,6 +3514,7 @@ function buildConsolidado() {
   html += `</tbody></table></div></div>`;
 
   html += buildSecaoInabilitadas();
+  html += buildSecaoItensCancelados();
 
   // TOTAL GERAL apenas uma vez — no final do consolidado
   html += `<div class="card" style="border-color:var(--info-border);background:var(--info-bg)">
@@ -3559,6 +3620,26 @@ function buildSecaoInabilitadas() {
     </div>
     <div class="scroll-x"><table class="rel-table">
       <thead><tr><th>Empresa</th><th>CNPJ</th><th>Situação</th><th>Motivo</th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table></div>
+  </div>`;
+}
+
+function buildSecaoItensCancelados() {
+  const lista = itens.filter(i => i.situacao && i.situacao !== 'ativo');
+  if (!lista.length) return '';
+  const rows = lista.map(i => `<tr>
+    <td style="font-weight:600;color:var(--info-text)">${esc(i.cod)}</td>
+    <td>${esc(i.desc)}</td>
+    <td>${badgeSituacaoItem(i, !i.empIds.length)}</td>
+    <td style="font-size:12px;color:var(--text2)">${i.motivoSituacao ? esc(i.motivoSituacao) : '—'}</td>
+  </tr>`).join('');
+  return `<div class="card rel-section" style="border-color:var(--warn-border)">
+    <div style="font-weight:700;font-size:14px;margin-bottom:14px;display:flex;align-items:center;gap:8px;color:var(--warn-text)">
+      &#9888; Itens cancelados / fracassados
+    </div>
+    <div class="scroll-x"><table class="rel-table">
+      <thead><tr><th>Cód.</th><th>Descrição</th><th>Situação</th><th>Motivo</th></tr></thead>
       <tbody>${rows}</tbody>
     </table></div>
   </div>`;
@@ -4067,6 +4148,7 @@ function usarLogoSugerida() {
   bindModalDismiss('modal-banco-empresas', () => document.getElementById('modal-banco-empresas').classList.add('hidden'));
   bindModalDismiss('modal-vincular-empresa', fecharModalVincularEmpresa);
   bindModalDismiss('modal-situacao-empresa', fecharModalSituacao);
+  bindModalDismiss('modal-situacao-item', fecharModalSituacaoItem);
 })();
 
 // Salvar com Ctrl+S
@@ -4183,6 +4265,34 @@ document.getElementById('rel-emp-select').addEventListener('change', renderRelat
     <div class="modal-footer">
       <button class="btn" onclick="fecharModalSituacao()">Cancelar</button>
       <button class="btn primary" onclick="salvarSituacaoEmpresa()">Salvar</button>
+    </div>
+  </div>
+</div>
+<!-- MODAL SITUAÇÃO DO ITEM -->
+<div id="modal-situacao-item" class="modal-overlay hidden">
+  <div class="modal" style="max-width:460px">
+    <div class="modal-header">
+      <span style="font-weight:700;font-size:15px">Situação do item</span>
+      <button class="modal-close" onclick="fecharModalSituacaoItem()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div style="font-weight:600;font-size:14px;margin-bottom:16px" id="sit-item-nome"></div>
+      <div class="field" style="margin-bottom:14px">
+        <label>Situação</label>
+        <select id="sit-item-status" style="width:100%">
+          <option value="ativo">✓ Ativo</option>
+          <option value="cancelado">⚫ Cancelado</option>
+          <option value="fracassado">⚠ Fracassado</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Motivo</label>
+        <textarea id="sit-item-motivo" style="width:100%;min-height:80px" placeholder="Ex: Valor unitário incorreto identificado após a publicação..."></textarea>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn" onclick="fecharModalSituacaoItem()">Cancelar</button>
+      <button class="btn primary" onclick="salvarSituacaoItem()">Salvar</button>
     </div>
   </div>
 </div>
