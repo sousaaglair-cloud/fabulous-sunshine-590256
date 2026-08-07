@@ -705,19 +705,17 @@
 
   <!-- DIVISÃO -->
   <div id="tab-divisao" class="section">
-    <div class="card" style="margin-bottom:16px">
-      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
-        <div class="card-title" style="margin-bottom:0">Divisão de quantitativos por item</div>
-        <input id="divisao-busca" placeholder="&#128269; Buscar item..." style="font-size:13px;padding:6px 10px;width:200px" oninput="renderDivisao(this.value)">
-        <div id="divisao-botoes" style="display:flex;gap:8px;flex-wrap:wrap">
-          <button class="btn" onclick="dividirIgual()">&#9776; Dividir igualmente</button>
-          <button class="btn" onclick="dividirProporcional()">&#9878; Divisão proporcional</button>
-          <button class="btn danger sm" onclick="resetDivisao()">Resetar tudo</button>
-        </div>
+    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;position:sticky;top:56px;z-index:90;background:var(--bg);padding:16px 20px;margin-bottom:16px;border-radius:var(--radius-lg);box-shadow:var(--shadow-sm);border:1px solid var(--border)">
+      <div class="card-title" style="margin-bottom:0">Divisão de quantitativos por item</div>
+      <input id="divisao-busca" placeholder="&#128269; Buscar item..." style="font-size:13px;padding:6px 10px;width:200px" oninput="renderDivisao(this.value)">
+      <div id="divisao-botoes" style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn" onclick="dividirIgual()">&#9776; Dividir igualmente</button>
+        <button class="btn" onclick="dividirProporcional()">&#9878; Divisão proporcional</button>
+        <button class="btn danger sm" onclick="resetDivisao()">Resetar tudo</button>
       </div>
-      <div id="divisao-sem-divisao-info" class="alert" style="display:none;margin-top:10px">
-        &#8505; Modalidade sem divisão (Art. 79, Inciso II) — cada empresa credenciada recebe automaticamente o quantitativo integral de cada item vinculado. Não há etapa manual de divisão.
-      </div>
+    </div>
+    <div id="divisao-sem-divisao-info" class="alert" style="display:none;margin-bottom:16px">
+      &#8505; Modalidade sem divisão (Art. 79, Inciso II) — cada empresa credenciada recebe automaticamente o quantitativo integral de cada item vinculado. Não há etapa manual de divisão.
     </div>
     <div id="divisao-container"></div>
   </div>
