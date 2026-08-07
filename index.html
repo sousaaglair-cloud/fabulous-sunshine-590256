@@ -1718,7 +1718,18 @@ function renderVinculacao() {
     return;
   }
 
-  const rows = itens.map((it, idx) => {
+  const itensAtivos = itens.filter(it => !it.situacao || it.situacao === 'ativo');
+  const excluidos = itens.length - itensAtivos.length;
+  if (!itensAtivos.length) {
+    container.innerHTML = '<div class="card"><div class="empty">Todos os itens estão cancelados ou fracassados — nada a vincular. Veja na aba Itens.</div></div>';
+    return;
+  }
+
+  const avisoHtml = excluidos
+    ? `<p style="font-size:12px;color:var(--text3);margin-bottom:12px">&#8505; ${excluidos} item(ns) cancelado(s)/fracassado(s) não aparece(m) aqui — veja na aba Itens.</p>`
+    : '';
+
+  const rows = itensAtivos.map((it, idx) => {
     const checkboxes = empresas.map(e => {
       const checked = it.empIds.includes(e.id) ? 'checked' : '';
       const nomeAbrev = esc(e.nome.length > 35 ? e.nome.substring(0, 33) + '…' : e.nome);
@@ -1747,7 +1758,7 @@ function renderVinculacao() {
     </tr>`;
   }).join('');
 
-  container.innerHTML = `<div class="card" style="padding:0;overflow:hidden">
+  container.innerHTML = `${avisoHtml}<div class="card" style="padding:0;overflow:hidden">
     <div class="scroll-x">
       <table class="vinc-table" style="min-width:600px">
         <thead>
@@ -1772,7 +1783,7 @@ function renderVinculacaoPorLote(container) {
   }
 
   let html = lotes.map(l => {
-    const its = itens.filter(it => it.loteId === l.id);
+    const its = itens.filter(it => it.loteId === l.id && (!it.situacao || it.situacao === 'ativo'));
     const checkboxes = empresas.map(e => {
       const checked = (l.empIds || []).includes(e.id) ? 'checked' : '';
       const nomeAbrev = esc(e.nome.length > 35 ? e.nome.substring(0, 33) + '…' : e.nome);
@@ -1797,7 +1808,7 @@ function renderVinculacaoPorLote(container) {
     </div>`;
   }).join('');
 
-  const semLote = itens.filter(it => !it.loteId);
+  const semLote = itens.filter(it => !it.loteId && (!it.situacao || it.situacao === 'ativo'));
   if (semLote.length) {
     html += `<div class="alert warn">&#9888; Há ${semLote.length} item(ns) sem lote atribuído. Vá à aba Itens para atribuí-los a um lote.</div>`;
   }
@@ -3992,7 +4003,7 @@ function vincularEmpresasAoLote(loteId, empIds) {
   const lote = lotes.find(l => l.id === loteId);
   if (!lote) return;
   lote.empIds = [...empIds];
-  itens.filter(it => it.loteId === loteId).forEach(it => { it.empIds = [...empIds]; });
+  itens.filter(it => it.loteId === loteId && (!it.situacao || it.situacao === 'ativo')).forEach(it => { it.empIds = [...empIds]; });
   renderVinculacao();
   renderItens();
   updateMetrics();
@@ -4194,17 +4205,8 @@ document.getElementById('rel-emp-select').addEventListener('change', renderRelat
 
   const { data: { session } } = await supa.auth.getSession();
   if (session && session.user) {
-    // Só loga automaticamente se a tela de login NÃO estiver visível
-    // (evita login automático por autocomplete ou sessão residual)
-    const loginScreen = document.getElementById('login-screen');
-    const loginVisible = !loginScreen.classList.contains('hidden');
-    if (!loginVisible) {
-      _usuarioAtual = session.user;
-      await iniciarSessao();
-    } else {
-      // Login screen está visível — aguarda clique do usuário
-      setTimeout(() => { document.getElementById('login-email').focus(); }, 100);
-    }
+    _usuarioAtual = session.user;
+    await iniciarSessao();
   } else {
     // Sem sessão — exibe tela de login
     document.getElementById('login-screen').classList.remove('hidden');
