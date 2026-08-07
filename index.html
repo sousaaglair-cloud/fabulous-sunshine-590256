@@ -582,7 +582,7 @@
       </div>
     </div>
     <div class="card">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:8px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:8px;position:sticky;top:56px;z-index:90;background:var(--bg);padding:8px 0">
         <div class="card-title" style="margin-bottom:0">Itens cadastrados (<span id="count-itens">0</span>)</div>
         <input placeholder="&#128269; Buscar..." style="font-size:13px;padding:6px 10px;width:200px" oninput="renderItens(this.value)">
       </div>
@@ -905,7 +905,13 @@
 // ---- SUPABASE CONFIG ----
 const SUPA_URL = 'https://mpgwgiajercrukuinnnt.supabase.co';
 const SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1wZ3dnaWFqZXJjcnVrdWlubm50Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI1MDM2NDYsImV4cCI6MjA5ODA3OTY0Nn0.CyWIkq98vCELYbMpQhJmO8Dpd5HWP4DvlRLNMBewnZY';
-const supa = supabase.createClient(SUPA_URL, SUPA_KEY);
+// A sessão fica salva em sessionStorage (não localStorage): isso mantém o
+// login ao atualizar a página (F5), mas exige login novamente sempre que a
+// aba/navegador é fechado e reaberto — evitando que qualquer pessoa que
+// abra o arquivo depois de você continue logada automaticamente.
+const supa = supabase.createClient(SUPA_URL, SUPA_KEY, {
+  auth: { storage: window.sessionStorage, persistSession: true, autoRefreshToken: true }
+});
 
 // Escapa texto vindo de usuários (nomes de empresa, descrições de item,
 // CNPJ, e-mail, endereço, objeto do processo, dados importados de
