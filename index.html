@@ -1434,13 +1434,6 @@ function renderListaProcessos() {
     return (a.numero || '').localeCompare(b.numero || '', 'pt-BR', { numeric: true, sensitivity: 'base' });
   });
 
-  const grupos = [
-    { key: 'em_andamento', label: '🟡 Em andamento' },
-    { key: 'concluido',    label: '🟢 Concluídos' },
-    { key: 'fracassado',   label: '🔴 Fracassados' },
-    { key: 'cancelado',    label: '⚫ Cancelados' },
-  ];
-
   function renderGrupo(processos) {
     return processos.map(p => {
       const nItens = (p.itens||[]).length;
@@ -1470,13 +1463,29 @@ function renderListaProcessos() {
     }).join('');
   }
 
-  const gruposHtml = grupos.map(g => {
-    const procs = listaOrdenada.filter(p => (p.status || 'em_andamento') === g.key);
-    if (!procs.length) return '';
+  // Agrupa por órgão — cada órgão vira uma seção própria, e dentro dela os
+  // processos continuam ordenados por status e depois por número. Um mesmo
+  // município pode ter vários órgãos (prefeitura, câmara, consórcio, etc.),
+  // por isso o agrupamento é pelo órgão, não pelo município.
+  // Processos sem órgão cadastrado caem numa seção "Sem órgão".
+  const orgaosMap = new Map();
+  listaOrdenada.forEach(p => {
+    const chave = (p.orgao || '').trim() || '— Sem órgão —';
+    if (!orgaosMap.has(chave)) orgaosMap.set(chave, []);
+    orgaosMap.get(chave).push(p);
+  });
+  const orgaosOrdenados = [...orgaosMap.keys()].sort((a, b) => {
+    if (a === '— Sem órgão —') return 1;
+    if (b === '— Sem órgão —') return -1;
+    return a.localeCompare(b, 'pt-BR', { sensitivity: 'base' });
+  });
+
+  const gruposHtml = orgaosOrdenados.map(orgao => {
+    const procs = orgaosMap.get(orgao);
     return `
-      <div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:0.6px;margin:20px 0 10px;display:flex;align-items:center;gap:8px">
-        ${g.label}
-        <span style="font-weight:400;background:var(--bg2);padding:1px 8px;border-radius:10px;border:1px solid var(--border)">${procs.length}</span>
+      <div style="font-size:13px;font-weight:700;color:var(--text);display:flex;align-items:center;gap:8px;margin:28px 0 12px;padding-bottom:8px;border-bottom:2px solid var(--border)">
+        &#127970; ${esc(orgao)}
+        <span style="font-size:11px;font-weight:400;color:var(--text3);background:var(--bg2);padding:1px 8px;border-radius:10px;border:1px solid var(--border)">${procs.length} processo(s)</span>
       </div>
       ${renderGrupo(procs)}
     `;
