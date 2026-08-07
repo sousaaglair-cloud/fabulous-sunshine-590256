@@ -2620,7 +2620,13 @@ function renderDivisao(filtro) {
     html += `<div class="card">
       <div style="display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:10px">
         <div><span style="font-weight:700;color:var(--info-text)">[${esc(it.cod)}]</span> <span style="font-weight:500">${esc(it.desc)}</span></div>
-        <div style="font-size:12px;color:var(--text2);text-align:right">Qtde: <strong>${it.qtde.toLocaleString('pt-BR')} ${esc(it.und)}</strong> &nbsp;|&nbsp; Total: <strong>${fmt(vtotal)}</strong></div>
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+          ${(!semDivisao && emps.length > 1) ? `<div style="display:flex;gap:6px">
+            <button class="btn sm" onclick="dividirIgualItem('${it.cod}')" title="Dividir igualmente só este item">&#9776; Igual</button>
+            <button class="btn sm" onclick="dividirProporcionalItem('${it.cod}')" title="Divisão proporcional só este item">&#9878; Proporcional</button>
+          </div>` : ''}
+          <div style="font-size:12px;color:var(--text2);text-align:right">Qtde: <strong>${it.qtde.toLocaleString('pt-BR')} ${esc(it.und)}</strong> &nbsp;|&nbsp; Total: <strong>${fmt(vtotal)}</strong></div>
+        </div>
       </div>
       ${alertHtml}
       ${rowsHtml}
@@ -2712,6 +2718,43 @@ function inputDivisao(cod, empId, val) {
 function setDivisao(cod, empId, val) {
   if (!divisoes[cod]) divisoes[cod] = {};
   divisoes[cod][empId] = Math.max(0, parseFloat(val) || 0);
+  renderDivisao();
+  updateMetrics();
+  renderEmpresas();
+  salvarProcesso(false);
+}
+
+// Versões "por item": aplicam a mesma lógica de dividirIgual/dividirProporcional,
+// mas só no item informado — os demais itens ficam como estavam.
+function dividirIgualItem(cod) {
+  const it = itens.find(i => i.cod === cod);
+  if (!it) return;
+  if (!divisoes[it.cod]) divisoes[it.cod] = {};
+  const emps = it.empIds.map(id => empresas.find(e => e.id === id)).filter(Boolean);
+  if (!emps.length) return;
+  const base = Math.floor(it.qtde / emps.length);
+  const resto = it.qtde % emps.length;
+  emps.forEach((e, i) => { divisoes[it.cod][e.id] = base + (i < resto ? 1 : 0); });
+  renderDivisao();
+  updateMetrics();
+  renderEmpresas();
+  salvarProcesso(false);
+}
+
+function dividirProporcionalItem(cod) {
+  const it = itens.find(i => i.cod === cod);
+  if (!it) return;
+  if (!divisoes[it.cod]) divisoes[it.cod] = {};
+  const emps = it.empIds.map(id => empresas.find(e => e.id === id)).filter(Boolean);
+  if (!emps.length) return;
+  const pesos = emps.map(e => itens.filter(i => i.empIds.includes(e.id)).length);
+  const totalPeso = pesos.reduce((a, b) => a + b, 0);
+  let alocado = 0;
+  emps.forEach((e, i) => {
+    const q = i === emps.length - 1 ? it.qtde - alocado : Math.round(it.qtde * pesos[i] / totalPeso);
+    divisoes[it.cod][e.id] = q;
+    alocado += q;
+  });
   renderDivisao();
   updateMetrics();
   renderEmpresas();
