@@ -179,6 +179,7 @@
   .scroll-x { overflow-x: auto; }
   .w80 { width: 80px; }
   .w120 { width: 120px; }
+  .w140 { width: 140px; }
   .w170 { width: 170px; }
   .flex1 { flex: 1; }
   .sep { height: 1px; background: var(--border); margin: 16px 0; }
@@ -548,6 +549,7 @@
     <button class="tab" onclick="showTab(event,'empresas')">🏢 Empresas</button>
     <button class="tab" onclick="showTab(event,'vinculacao')">🔗 Vinculação</button>
     <button class="tab" onclick="showTab(event,'divisao')">⚖️ Divisão</button>
+    <button class="tab" onclick="showTab(event,'contratos')">📄 Contratos</button>
     <button class="tab" onclick="showTab(event,'importar')">⬆ Importar</button>
     <button class="tab" onclick="showTab(event,'relatorio')">📊 Relatório</button>
   </div>
@@ -718,6 +720,39 @@
       &#8505; Modalidade sem divisão (Art. 79, Inciso II) — cada empresa credenciada recebe automaticamente o quantitativo integral de cada item vinculado. Não há etapa manual de divisão.
     </div>
     <div id="divisao-container"></div>
+  </div>
+
+  <!-- CONTRATOS -->
+  <div id="tab-contratos" class="section">
+    <div class="card">
+      <div class="card-title" id="contrato-form-title">Novo contrato</div>
+      <div class="row">
+        <div class="field"><label>Nº do contrato</label><input class="w120" id="ct-numero" placeholder="Ex: 012/2026"></div>
+        <div class="field flex1"><label>Empresa</label><select id="ct-empresa" style="width:100%" onchange="onContratoEmpresaChange()"><option value="">— Selecione —</option></select></div>
+        <div class="field"><label>Data de assinatura</label><input type="date" class="w140" id="ct-data-assinatura"></div>
+        <div class="field"><label>Vigência — fim</label><input type="date" class="w140" id="ct-vigencia-fim"></div>
+        <div class="field">
+          <label>Valor global (R$)</label>
+          <input type="number" class="w140" id="ct-valor-global" min="0" step="0.01" value="0">
+        </div>
+        <div class="field" style="justify-content:flex-end">
+          <button class="btn primary" id="ct-btn-salvar" onclick="salvarContrato()">+ Adicionar</button>
+        </div>
+      </div>
+      <div id="ct-valor-info" style="font-size:12px;color:var(--text3);margin-top:6px;display:none"></div>
+      <div id="ct-form-cancelar" style="display:none;margin-top:8px">
+        <button class="btn sm" onclick="cancelarEdicaoContrato()">Cancelar edição</button>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-title">Contratos cadastrados (<span id="count-contratos">0</span>)</div>
+      <div class="scroll-x">
+        <table>
+          <thead><tr><th>Nº contrato</th><th>Empresa</th><th>Data assinatura</th><th>Vigência</th><th>Valor global</th><th></th></tr></thead>
+          <tbody id="tbody-contratos"></tbody>
+        </table>
+      </div>
+    </div>
   </div>
 
   <!-- IMPORTAR -->
@@ -932,6 +967,7 @@ function esc(v) {
 let itens = [];
 let empresas = [];
 let divisoes = {};
+let contratos = [];
 let processoAtivo = null;
 let autoSaveTimer = null;
 let _processosCache = [];
@@ -1061,6 +1097,7 @@ function localToDB(p) {
     empresas: p.empresas || [],
     divisoes: p.divisoes || {},
     lotes: p.lotes || [],
+    contratos: p.contratos || [],
     criado_em: p.criadoEm || new Date().toISOString(),
     atualizado_em: p.atualizadoEm || new Date().toISOString(),
     user_id: _usuarioAtual ? _usuarioAtual.id : null
@@ -1084,6 +1121,7 @@ function dbToLocal(d) {
     empresas: d.empresas || [],
     divisoes: d.divisoes || {},
     lotes: d.lotes || [],
+    contratos: d.contratos || [],
     criadoEm: d.criado_em,
     atualizadoEm: d.atualizado_em
   };
@@ -1232,6 +1270,7 @@ function abrirProcesso(id) {
   empresas = JSON.parse(JSON.stringify(proc.empresas || []));
   divisoes = JSON.parse(JSON.stringify(proc.divisoes || {}));
   lotes = JSON.parse(JSON.stringify(proc.lotes || []));
+  contratos = JSON.parse(JSON.stringify(proc.contratos || []));
 
   document.getElementById('processo-home').classList.remove('active');
   document.getElementById('processo-home').style.display = 'none';
@@ -1246,6 +1285,7 @@ function abrirProcesso(id) {
   renderItens();
   renderEmpresas();
   renderEmpChipsAdd();
+  renderContratos();
   updateMetrics();
 
   clearInterval(autoSaveTimer);
@@ -1263,6 +1303,7 @@ async function salvarProcesso(manual = false) {
     empresas: JSON.parse(JSON.stringify(empresas)),
     divisoes: JSON.parse(JSON.stringify(divisoes)),
     lotes: JSON.parse(JSON.stringify(lotes)),
+    contratos: JSON.parse(JSON.stringify(contratos)),
     status: lista[idx].status,
     atualizadoEm: new Date().toISOString()
   };
@@ -1298,7 +1339,7 @@ function goHome() {
   if (processoAtivo) salvarProcesso(false);
   clearInterval(autoSaveTimer);
   processoAtivo = null;
-  itens = []; empresas = []; divisoes = {}; lotes = [];
+  itens = []; empresas = []; divisoes = {}; lotes = []; contratos = [];
   document.getElementById('app-main').style.display = 'none';
   document.getElementById('processo-home').style.display = 'block';
   document.getElementById('processo-home').classList.add('active');
@@ -1608,6 +1649,7 @@ function showTab(e, t) {
   if (t === 'divisao') renderDivisao();
   if (t === 'vinculacao') renderVinculacao();
   if (t === 'relatorio') renderRelatorio();
+  if (t === 'contratos') renderContratos();
 }
 
 function showTabDirect(t) {
@@ -2447,6 +2489,132 @@ function removerSelecionadas() {
   updateMetrics();
   refreshVinculacaoSeAtiva();
   salvarProcesso(false);
+}
+
+// ---- CONTRATOS ----
+
+// Valor já dividido/alocado para uma empresa, com base na Divisão de quantitativos
+function valorDivididoEmpresa(empId) {
+  return itens.reduce((s, it) => s + ((divisoes[it.cod] && divisoes[it.cod][empId]) || 0) * it.vunit, 0);
+}
+
+let _contratoEditandoId = null;
+
+function popularSelectEmpresaContrato() {
+  const sel = document.getElementById('ct-empresa');
+  if (!sel) return;
+  const atual = sel.value;
+  sel.innerHTML = '<option value="">— Selecione —</option>' +
+    empresas.map(e => `<option value="${e.id}">${e.nome}</option>`).join('');
+  if (atual) sel.value = atual;
+}
+
+function onContratoEmpresaChange() {
+  const empId = document.getElementById('ct-empresa').value;
+  const infoEl = document.getElementById('ct-valor-info');
+  if (!empId) { infoEl.style.display = 'none'; return; }
+  const valorDividido = valorDivididoEmpresa(empId);
+  document.getElementById('ct-valor-global').value = valorDividido.toFixed(2);
+  infoEl.style.display = 'block';
+  infoEl.innerHTML = `&#8505; Valor sugerido automaticamente com base no quantitativo dividido para essa empresa: <strong>${fmt(valorDividido)}</strong>. Você pode ajustar se o valor do contrato for diferente.`;
+}
+
+function salvarContrato() {
+  const numero = document.getElementById('ct-numero').value.trim();
+  const empresaId = document.getElementById('ct-empresa').value;
+  const dataAssinatura = document.getElementById('ct-data-assinatura').value;
+  const vigenciaInicio = dataAssinatura; // vigência inicia na data de assinatura do contrato
+  const vigenciaFim = document.getElementById('ct-vigencia-fim').value;
+  const valorGlobal = parseFloat(document.getElementById('ct-valor-global').value) || 0;
+
+  if (!numero) { alert('Informe o número do contrato.'); return; }
+  if (!empresaId) { alert('Selecione a empresa.'); return; }
+
+  if (_contratoEditandoId) {
+    const idx = contratos.findIndex(c => c.id === _contratoEditandoId);
+    if (idx >= 0) contratos[idx] = { ...contratos[idx], numero, empresaId, dataAssinatura, vigenciaInicio, vigenciaFim, valorGlobal };
+    cancelarEdicaoContrato();
+  } else {
+    contratos.push({ id: 'ct' + Date.now() + Math.random().toString(36).substr(2,5), numero, empresaId, dataAssinatura, vigenciaInicio, vigenciaFim, valorGlobal });
+  }
+
+  limparFormContrato();
+  renderContratos();
+  salvarProcesso(false);
+}
+
+function limparFormContrato() {
+  document.getElementById('ct-numero').value = '';
+  document.getElementById('ct-empresa').value = '';
+  document.getElementById('ct-data-assinatura').value = '';
+  document.getElementById('ct-vigencia-fim').value = '';
+  document.getElementById('ct-valor-global').value = '0';
+  document.getElementById('ct-valor-info').style.display = 'none';
+}
+
+function editarContrato(id) {
+  const c = contratos.find(x => x.id === id);
+  if (!c) return;
+  _contratoEditandoId = id;
+  popularSelectEmpresaContrato();
+  document.getElementById('ct-numero').value = c.numero || '';
+  document.getElementById('ct-empresa').value = c.empresaId || '';
+  document.getElementById('ct-data-assinatura').value = c.dataAssinatura || '';
+  document.getElementById('ct-vigencia-fim').value = c.vigenciaFim || '';
+  document.getElementById('ct-valor-global').value = c.valorGlobal || 0;
+  document.getElementById('contrato-form-title').textContent = 'Editando contrato ' + c.numero;
+  document.getElementById('ct-btn-salvar').textContent = '✓ Salvar alterações';
+  document.getElementById('ct-form-cancelar').style.display = 'block';
+  document.getElementById('tab-contratos').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function cancelarEdicaoContrato() {
+  _contratoEditandoId = null;
+  document.getElementById('contrato-form-title').textContent = 'Novo contrato';
+  document.getElementById('ct-btn-salvar').textContent = '+ Adicionar';
+  document.getElementById('ct-form-cancelar').style.display = 'none';
+  limparFormContrato();
+}
+
+function excluirContrato(id) {
+  const c = contratos.find(x => x.id === id);
+  if (!c) return;
+  if (!confirm(`Excluir o contrato ${c.numero}?`)) return;
+  contratos = contratos.filter(x => x.id !== id);
+  if (_contratoEditandoId === id) cancelarEdicaoContrato();
+  renderContratos();
+  salvarProcesso(false);
+}
+
+function renderContratos() {
+  popularSelectEmpresaContrato();
+  document.getElementById('count-contratos').textContent = contratos.length;
+  const tbody = document.getElementById('tbody-contratos');
+  if (!tbody) return;
+
+  if (!contratos.length) {
+    tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;color:var(--text3);padding:24px">Nenhum contrato cadastrado ainda.</td></tr>`;
+    return;
+  }
+
+  const fmtData = d => d ? new Date(d + 'T00:00:00').toLocaleDateString('pt-BR') : '—';
+
+  tbody.innerHTML = contratos.map(c => {
+    const emp = empresas.find(e => e.id === c.empresaId);
+    const vigenciaInicio = c.vigenciaInicio || c.dataAssinatura;
+    const vigencia = (vigenciaInicio || c.vigenciaFim) ? `${fmtData(vigenciaInicio)} a ${fmtData(c.vigenciaFim)}` : '—';
+    return `<tr>
+      <td style="font-weight:600">${c.numero}</td>
+      <td>${emp ? emp.nome : '<span style="color:var(--text3)">Empresa removida</span>'}</td>
+      <td>${fmtData(c.dataAssinatura)}</td>
+      <td>${vigencia}</td>
+      <td>${fmt(c.valorGlobal || 0)}</td>
+      <td style="white-space:nowrap">
+        <button class="btn sm" onclick="editarContrato('${c.id}')" title="Editar">✏️</button>
+        <button class="btn danger sm" onclick="excluirContrato('${c.id}')" title="Excluir">✕</button>
+      </td>
+    </tr>`;
+  }).join('');
 }
 
 function refreshVinculacaoSeAtiva() {
