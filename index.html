@@ -2504,8 +2504,19 @@ function popularSelectEmpresaContrato() {
   const sel = document.getElementById('ct-empresa');
   if (!sel) return;
   const atual = sel.value;
+  // Só empresas habilitadas podem receber novo contrato — desclassificadas/inabilitadas ficam de fora
+  let lista = empresas.filter(e => (e.situacao || 'habilitada') === 'habilitada');
+  // Exceção: se estiver editando um contrato já existente cuja empresa não está mais habilitada,
+  // mantém ela na lista pra não quebrar a edição de um contrato antigo/histórico.
+  if (_contratoEditandoId) {
+    const c = contratos.find(x => x.id === _contratoEditandoId);
+    if (c && !lista.find(e => e.id === c.empresaId)) {
+      const empOriginal = empresas.find(e => e.id === c.empresaId);
+      if (empOriginal) lista = [...lista, empOriginal];
+    }
+  }
   sel.innerHTML = '<option value="">— Selecione —</option>' +
-    empresas.map(e => `<option value="${e.id}">${e.nome}</option>`).join('');
+    lista.map(e => `<option value="${e.id}">${e.nome}</option>`).join('');
   if (atual) sel.value = atual;
 }
 
