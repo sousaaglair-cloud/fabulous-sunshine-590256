@@ -6,6 +6,7 @@
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self' https://mpgwgiajercrukuinnnt.supabase.co wss://mpgwgiajercrukuinnnt.supabase.co https://brasilapi.com.br; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'self';">
 <title>Gestão de Credenciamento — Divisão de Quantitativos</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
   :root {
@@ -522,6 +523,7 @@
         <div style="font-size:13px;color:var(--text2);margin-top:4px">Gerencie e acompanhe seus credenciamentos</div>
       </div>
       <div style="display:flex;gap:8px">
+        <button class="btn sm" onclick="abrirModalImportarReferencia()">🌐 Importar referência (Portal de Compras)</button>
         <button class="btn sm" onclick="importarBackup()">⬆ Carregar backup</button>
         <button class="btn primary" onclick="abrirModalNovoProcesso()">+ Novo processo</button>
       </div>
@@ -937,6 +939,11 @@
 </script>
 
 <script>
+// ---- PDF.JS CONFIG (extração de texto de PDF pra importação de referência externa) ----
+if (window['pdfjsLib']) {
+  pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+}
+
 // ---- SUPABASE CONFIG ----
 const SUPA_URL = 'https://mpgwgiajercrukuinnnt.supabase.co';
 const SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1wZ3dnaWFqZXJjcnVrdWlubm50Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI1MDM2NDYsImV4cCI6MjA5ODA3OTY0Nn0.CyWIkq98vCELYbMpQhJmO8Dpd5HWP4DvlRLNMBewnZY';
@@ -1098,6 +1105,7 @@ function localToDB(p) {
     divisoes: p.divisoes || {},
     lotes: p.lotes || [],
     contratos: p.contratos || [],
+    referencia_externa: p.referenciaExterna || false,
     criado_em: p.criadoEm || new Date().toISOString(),
     atualizado_em: p.atualizadoEm || new Date().toISOString(),
     user_id: _usuarioAtual ? _usuarioAtual.id : null
@@ -1122,6 +1130,7 @@ function dbToLocal(d) {
     divisoes: d.divisoes || {},
     lotes: d.lotes || [],
     contratos: d.contratos || [],
+    referenciaExterna: d.referencia_externa || false,
     criadoEm: d.criado_em,
     atualizadoEm: d.atualizado_em
   };
@@ -1155,6 +1164,320 @@ async function atualizarProcessoDB(p) {
 async function excluirProcessoDB(id) {
   const { error } = await supa.from('processos').delete().eq('id', id);
   if (error) throw error;
+}
+
+// ---- IMPORTAÇÃO DE PROCESSO DE REFERÊNCIA (Portal de Compras Públicas) ----
+// Lê o texto do "Termo de Adjudicação" (colado com as barras | separando as
+// colunas da tabela) e monta um processo completo — itens, valores,
+// quantidades e empresas vinculadas — pra usar como referência de preços de
+// outros municípios/órgãos, sem precisar digitar tudo manualmente.
+
+function extrairNumeroPortal(str) {
+  if (!str) return 0;
+  const limpo = String(str).replace(/[^\d.,]/g, '').replace(/\.(?=\d{3}(\D|$))/g, '').replace(',', '.');
+  const n = parseFloat(limpo);
+  return isNaN(n) ? 0 : n;
+}
+
+function extrairCabecalhoPortal(texto) {
+  const linhas = texto.split('\n').map(l => l.trim()).filter(Boolean);
+  const linhaOrgao = linhas.find(l => l.startsWith('##') && !/RANKING|ADJUDICA|RESULTADO/i.test(l));
+  if (!linhaOrgao) return { orgao: '', numero: '' };
+  const palavras = linhaOrgao.replace(/^#+\s*/, '').trim().split(/\s+/);
+  for (let n = 1; n <= Math.floor(palavras.length / 2); n++) {
+    const a = palavras.slice(0, n).join(' ');
+    const b = palavras.slice(n, 2 * n).join(' ');
+    if (a === b) return { orgao: a, numero: palavras.slice(2 * n).join(' ').replace(/^-+\s*/, '').trim() };
+  }
+  return { orgao: palavras.join(' '), numero: '' };
+}
+
+function extrairMunicipioDeOrgaoPortal(orgao) {
+  const m = (orgao || '').match(/Prefeitura\s+Municipal\s+de\s+(.+)/i);
+  return m ? m[1].trim() : '';
+}
+
+function parseLinhaTabelaPortal(linha) {
+  let partes = linha.split('|').map(c => c.trim());
+  if (partes.length && partes[0] === '') partes.shift();
+  if (partes.length && partes[partes.length - 1] === '') partes.pop();
+  return partes;
+}
+
+// Reconhece cabeçalhos de item em qualquer formato que o Portal exporta:
+// "## Item: 0001 - ...", "*Item: 0001 - ...*" (itálico) ou texto puro sem
+// nenhum prefixo (extraído de PDF). Também junta as linhas de cabeçalho até
+// a tabela começar, porque o texto às vezes quebra "Valor Referência" em
+// duas linhas na exportação.
+function parseAdjudicacaoPortal(texto) {
+  const { orgao, numero } = extrairCabecalhoPortal(texto);
+  const blocos = texto.split(/\n\s*[#*]{0,6}\s*Item:\s*/i).slice(1);
+  const itensBrutos = blocos.map(bloco => {
+    const linhas = bloco.split('\n');
+    let headerLines = [];
+    let tableStartIdx = linhas.length;
+    for (let i = 0; i < linhas.length; i++) {
+      if (linhas[i].trim().startsWith('|')) { tableStartIdx = i; break; }
+      if (linhas[i].trim()) headerLines.push(linhas[i].trim());
+    }
+    const cab = headerLines.join(' ').replace(/\*+$/, '').trim();
+    const m = cab.match(/^(\S+)\s*-\s*(.+?)\s*-\s*Valor\s*Refer[êe]ncia:\s*R\\?\$\s*([\d.,]+)/i);
+    if (!m) return { erro: true, cabecalhoBruto: cab.slice(0, 140) };
+    const cod = m[1].trim();
+    const desc = m[2].trim();
+    const vunit = extrairNumeroPortal(m[3]);
+    const empresas = [];
+    let atual = null;
+    let qtde = 0;
+    linhas.slice(tableStartIdx).forEach(l => {
+      if (!l.trim().startsWith('|')) return;
+      const cells = parseLinhaTabelaPortal(l);
+      if (!cells.length) return;
+      const primeira = cells[0] || '';
+      if (primeira === 'Fornecedor') return;
+      if (primeira.startsWith('Item:')) return;
+      if (cells.every(c => /^-*$/.test(c))) return;
+      const qtdeCel = (cells[4] || '').replace(/\./g, '').replace(/[^\d]/g, '');
+      const ehNovoRegistro = qtdeCel && parseInt(qtdeCel, 10) > 0;
+      if (ehNovoRegistro) {
+        if (atual) empresas.push(atual);
+        atual = { nome: primeira };
+        qtde = Math.max(qtde, parseInt(qtdeCel, 10));
+      } else if (atual && primeira) {
+        atual.nome += ' ' + primeira;
+      }
+    });
+    if (atual) empresas.push(atual);
+    return { cod, desc, vunit, qtde, empresas };
+  });
+  const itens = itensBrutos.filter(it => !it.erro);
+  const invalidos = itensBrutos.filter(it => it.erro);
+  return { orgao, numero, itens, invalidos };
+}
+
+// Lê o arquivo de RANKING (que traz o CNPJ, ao contrário da Adjudicação) e
+// monta um mapa NOME DA EMPRESA (normalizado) -> CNPJ, pra cruzar com os
+// itens extraídos da Adjudicação. A tabela do Ranking tem colunas diferentes
+// (Fornecedor | CNPJ/CPF | Valor Unitário | Quantidade Modelo | ...), então
+// aqui o sinal de "início de novo registro" é a própria célula de CNPJ ter
+// um CNPJ/CPF válido — não uma coluna de quantidade separada como na outra.
+function parseRankingCnpjPortal(texto) {
+  const mapa = new Map();
+  if (!texto || !texto.trim()) return mapa;
+  const regexDoc = /\d{2}\.?\d{3}\.?\d{3}\/?\d{4}-?\d{2}|\d{3}\.?\d{3}\.?\d{3}-?\d{2}/;
+  const linhas = texto.split('\n');
+  let atual = null;
+  linhas.forEach(l => {
+    if (!l.trim().startsWith('|')) return;
+    const cells = parseLinhaTabelaPortal(l);
+    if (!cells.length) return;
+    const primeira = cells[0] || '';
+    if (primeira === 'Fornecedor') return;
+    if (cells.every(c => /^-*$/.test(c))) return;
+    if ((cells[1] || '').trim().startsWith('R$')) return;
+    const cnpjCel = (cells[1] || '').trim();
+    if (regexDoc.test(cnpjCel)) {
+      if (atual) mapa.set(atual.nome, atual.doc);
+      atual = { nome: primeira.trim().toUpperCase(), doc: cnpjCel };
+    } else if (atual && primeira.trim()) {
+      atual.nome += ' ' + primeira.trim();
+      atual.nome = atual.nome.toUpperCase();
+    }
+  });
+  if (atual) mapa.set(atual.nome, atual.doc);
+  return mapa;
+}
+
+// ---- ANEXAR ARQUIVO (em vez de colar o texto) ----
+// .md/.txt: lê o conteúdo do arquivo diretamente como texto.
+// .pdf: extrai o texto da posição de cada trecho na página (via pdf.js) e
+// reconstrói linhas/colunas por proximidade de coordenadas, gerando um texto
+// no mesmo formato "| célula | célula |" que o parser já sabe ler. Isso é
+// heurístico — PDFs têm estruturas internas diferentes entre si, então
+// SEMPRE confira a prévia com atenção antes de importar um PDF.
+async function extrairTextoLayoutPDF(file) {
+  if (!window['pdfjsLib']) throw new Error('Biblioteca de leitura de PDF não carregou. Recarregue a página e tente de novo.');
+  const buf = await file.arrayBuffer();
+  const pdf = await pdfjsLib.getDocument({ data: buf }).promise;
+  const linhasTotais = [];
+
+  for (let p = 1; p <= pdf.numPages; p++) {
+    const page = await pdf.getPage(p);
+    const content = await page.getTextContent();
+    const itens = content.items
+      .map(it => ({ texto: it.str, x: it.transform[4], y: Math.round(it.transform[5]) }))
+      .filter(it => it.texto.trim());
+    if (!itens.length) continue;
+
+    // Agrupa por Y aproximado (tolerância de 3pt) — cada grupo é uma "linha" visual da página
+    const linhas = [];
+    itens.forEach(it => {
+      let linha = linhas.find(l => Math.abs(l.y - it.y) <= 3);
+      if (!linha) { linha = { y: it.y, itens: [] }; linhas.push(linha); }
+      linha.itens.push(it);
+    });
+    linhas.sort((a, b) => b.y - a.y); // topo da página primeiro
+
+    linhas.forEach(l => {
+      l.itens.sort((a, b) => a.x - b.x);
+      // Agrupa itens próximos em X como a mesma "célula" da tabela — um espaço
+      // maior que ~14pt entre um texto e o próximo indica nova coluna
+      const celulas = [];
+      let atual = '';
+      let fimAnterior = null;
+      l.itens.forEach(it => {
+        if (fimAnterior !== null && (it.x - fimAnterior) > 14) {
+          celulas.push(atual.trim());
+          atual = '';
+        }
+        atual += (atual && !atual.endsWith(' ') ? ' ' : '') + it.texto;
+        fimAnterior = it.x + it.texto.length * 4.2; // largura média estimada do caractere
+      });
+      if (atual.trim()) celulas.push(atual.trim());
+      linhasTotais.push(celulas.length > 1 ? '| ' + celulas.join(' | ') + ' |' : celulas.join(' '));
+    });
+    linhasTotais.push('');
+  }
+  return linhasTotais.join('\n');
+}
+
+async function lerArquivoReferencia(file) {
+  const nome = (file.name || '').toLowerCase();
+  if (nome.endsWith('.pdf')) return await extrairTextoLayoutPDF(file);
+  return await file.text();
+}
+
+async function onAnexarArquivoAdjudicacao(input) {
+  const file = input.files[0];
+  if (!file) return;
+  const status = document.getElementById('ref-import-status-adj');
+  status.innerHTML = `&#8987; Lendo ${esc(file.name)}...`;
+  try {
+    const texto = await lerArquivoReferencia(file);
+    document.getElementById('ref-import-textarea').value = texto;
+    const ehPdf = file.name.toLowerCase().endsWith('.pdf');
+    status.innerHTML = ehPdf
+      ? `&#9888; Texto extraído do PDF <strong>${esc(file.name)}</strong> — layout reconstruído automaticamente. <u>Confira a prévia com atenção</u>, PDF pode sair fora de ordem.`
+      : `&#10003; Arquivo <strong>${esc(file.name)}</strong> carregado.`;
+    pretextarImportacaoReferencia();
+  } catch (err) {
+    status.innerHTML = `<span style="color:var(--danger-text)">&#9888; Erro ao ler o arquivo: ${esc(err.message)}</span>`;
+  }
+  input.value = '';
+}
+
+async function onAnexarArquivoRanking(input) {
+  const file = input.files[0];
+  if (!file) return;
+  const status = document.getElementById('ref-import-status-rank');
+  status.innerHTML = `&#8987; Lendo ${esc(file.name)}...`;
+  try {
+    const texto = await lerArquivoReferencia(file);
+    document.getElementById('ref-import-textarea-ranking').value = texto;
+    const ehPdf = file.name.toLowerCase().endsWith('.pdf');
+    status.innerHTML = ehPdf
+      ? `&#9888; Texto extraído do PDF <strong>${esc(file.name)}</strong> — confira se os CNPJs saíram certos na prévia.`
+      : `&#10003; Arquivo <strong>${esc(file.name)}</strong> carregado.`;
+    pretextarImportacaoReferencia();
+  } catch (err) {
+    status.innerHTML = `<span style="color:var(--danger-text)">&#9888; Erro ao ler o arquivo: ${esc(err.message)}</span>`;
+  }
+  input.value = '';
+}
+
+function abrirModalImportarReferencia() {
+  document.getElementById('ref-import-textarea').value = '';
+  document.getElementById('ref-import-textarea-ranking').value = '';
+  document.getElementById('ref-import-preview').innerHTML = '';
+  document.getElementById('ref-import-status-adj').innerHTML = '';
+  document.getElementById('ref-import-status-rank').innerHTML = '';
+  document.getElementById('modal-importar-referencia').classList.remove('hidden');
+}
+
+function fecharModalImportarReferencia() {
+  document.getElementById('modal-importar-referencia').classList.add('hidden');
+}
+
+function pretextarImportacaoReferencia() {
+  const texto = document.getElementById('ref-import-textarea').value;
+  const textoRanking = document.getElementById('ref-import-textarea-ranking').value;
+  const preview = document.getElementById('ref-import-preview');
+  if (!texto.trim()) { preview.innerHTML = ''; return; }
+  const { orgao, numero, itens, invalidos } = parseAdjudicacaoPortal(texto);
+  if (!itens.length) {
+    preview.innerHTML = `<div class="alert warn">&#9888; Não consegui identificar nenhum item nesse texto. Confira se colou o conteúdo completo, com as barras "|" separando as colunas da tabela.</div>`;
+    return;
+  }
+  const cnpjMap = parseRankingCnpjPortal(textoRanking);
+  const nomesUnicos = new Set(itens.flatMap(it => it.empresas.map(e => e.nome.trim().toUpperCase())));
+  const totalEmp = nomesUnicos.size;
+  const comCnpj = [...nomesUnicos].filter(n => cnpjMap.has(n)).length;
+  const avisoCnpj = textoRanking.trim()
+    ? `${comCnpj}/${totalEmp} empresa(s) com CNPJ encontrado`
+    : `<span style="color:var(--warn-text)">nenhum arquivo de Ranking colado — CNPJ ficará em branco</span>`;
+
+  const LIMITE_PREVIEW = 50;
+  const linhasTabela = itens.slice(0, LIMITE_PREVIEW).map(it => `<tr><td>${esc(it.cod)}</td><td>${esc(it.desc)}</td><td>${it.qtde}</td><td>${fmt(it.vunit)}</td><td>${it.empresas.length}</td></tr>`).join('');
+  const restante = itens.length - LIMITE_PREVIEW;
+
+  preview.innerHTML = `<div class="alert ok" style="margin-bottom:10px">&#10003; ${esc(orgao) || '(órgão não identificado)'} — ${esc(numero) || '(número não identificado)'}<br>${itens.length} item(ns) · ${totalEmp} empresa(s) no total · ${avisoCnpj}</div>
+    ${invalidos.length ? `<div class="alert warn" style="margin-bottom:10px">&#9888; ${invalidos.length} bloco(s) de item não reconhecido(s) e ignorado(s) — confira se o texto foi colado por completo.</div>` : ''}
+    <div class="scroll-x"><table class="rel-table"><thead><tr><th>Cód.</th><th>Descrição</th><th>Qtde</th><th>Vl. unit.</th><th>Empresas</th></tr></thead>
+    <tbody>${linhasTabela}</tbody></table></div>
+    ${restante > 0 ? `<div style="font-size:12px;color:var(--text3);margin-top:6px">+ ${restante} item(ns) não exibido(s) na prévia, mas serão todos importados.</div>` : ''}`;
+}
+
+async function confirmarImportacaoReferencia() {
+  const texto = document.getElementById('ref-import-textarea').value;
+  const textoRanking = document.getElementById('ref-import-textarea-ranking').value;
+  const { orgao, numero, itens } = parseAdjudicacaoPortal(texto);
+  if (!itens.length) { alert('Não há itens pra importar. Confira o texto colado.'); return; }
+  const cnpjMap = parseRankingCnpjPortal(textoRanking);
+
+  const empresasMap = new Map();
+  const itensFinal = itens.map(it => {
+    const empIds = it.empresas.map(e => {
+      const chave = e.nome.trim().toUpperCase();
+      if (!empresasMap.has(chave)) {
+        const id = 'e' + Date.now() + Math.random().toString(36).substr(2, 5);
+        empresasMap.set(chave, { id, nome: e.nome.trim(), cnpj: cnpjMap.get(chave) || '', situacao: 'habilitada' });
+      }
+      return empresasMap.get(chave).id;
+    });
+    return { cod: it.cod, desc: it.desc, und: 'UN', qtde: it.qtde, vunit: it.vunit, empIds, loteId: null };
+  });
+
+  const novo = {
+    id: 'p' + Date.now(),
+    numero: numero || 'Processo importado',
+    orgao: orgao || '',
+    municipio: extrairMunicipioDeOrgaoPortal(orgao),
+    logo: '',
+    tipoJulgamento: 'item_ii',
+    objeto: '',
+    status: 'concluido',
+    obs: 'Importado do Portal de Compras Públicas — referência externa para pesquisa de preços.',
+    dataAbertura: '',
+    dataHomologacao: '',
+    lotes: [],
+    contratos: [],
+    criadoEm: new Date().toISOString(),
+    atualizadoEm: new Date().toISOString(),
+    itens: itensFinal,
+    empresas: [...empresasMap.values()],
+    divisoes: {},
+    referenciaExterna: true
+  };
+
+  try {
+    const salvo = await inserirProcessoDB(novo);
+    _processosCache.push(salvo || novo);
+    fecharModalImportarReferencia();
+    renderListaProcessos();
+    alert(`Processo de referência importado: ${itensFinal.length} item(ns), ${empresasMap.size} empresa(s).`);
+  } catch (err) {
+    alert('Erro ao salvar processo importado: ' + err.message);
+  }
 }
 
 // ---- GESTÃO DE PROCESSOS ----
@@ -1484,7 +1807,7 @@ function renderListaProcessos() {
       return `<div class="proc-card" onclick="abrirProcesso('${p.id}')">
         <div class="proc-icon">📁</div>
         <div class="proc-info">
-          <div class="proc-nome">${esc(p.numero)}</div>
+          <div class="proc-nome">${esc(p.numero)} ${p.referenciaExterna ? '<span style="font-size:10px;font-weight:600;padding:2px 7px;border-radius:10px;background:var(--info-bg);color:var(--info-text);border:1px solid var(--info-border);vertical-align:middle">🌐 Referência externa</span>' : ''}</div>
           ${(p.orgao||p.municipio) ? `<div class="proc-meta" style="margin-top:3px">
             ${esc([p.orgao,p.municipio].filter(Boolean).join(' · '))}
           </div>` : ''}
@@ -4395,6 +4718,7 @@ function usarLogoSugerida() {
   bindModalDismiss('modal-vincular-empresa', fecharModalVincularEmpresa);
   bindModalDismiss('modal-situacao-empresa', fecharModalSituacao);
   bindModalDismiss('modal-situacao-item', fecharModalSituacaoItem);
+  bindModalDismiss('modal-importar-referencia', fecharModalImportarReferencia);
 })();
 
 // Salvar com Ctrl+S
@@ -4449,6 +4773,49 @@ document.getElementById('rel-emp-select').addEventListener('change', renderRelat
   }
 })();
 </script>
+
+<!-- MODAL IMPORTAR PROCESSO DE REFERÊNCIA (Portal de Compras Públicas) -->
+<div id="modal-importar-referencia" class="modal-overlay hidden">
+  <div class="modal" style="max-width:760px">
+    <div class="modal-header">
+      <span style="font-weight:700;font-size:15px">&#127760; Importar processo de referência</span>
+      <button class="modal-close" onclick="fecharModalImportarReferencia()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div style="font-size:12px;color:var(--text2);margin-bottom:12px">
+        Anexe o arquivo do <strong>Termo de Adjudicação</strong> e, opcionalmente, do <strong>Ranking</strong>
+        exportados do Portal de Compras Públicas — aceita <strong>.pdf</strong>, <strong>.md</strong> ou <strong>.txt</strong>.
+        Se preferir, também dá pra colar o texto direto (mantendo as barras "|" que separam as colunas das tabelas).
+        Isso cria um <strong>novo processo</strong>, marcado como referência externa, com itens, valores,
+        quantidades e empresas (com CNPJ, se o Ranking for informado) já preenchidos — pra usar depois na
+        pesquisa de preços. Funciona com arquivos extensos, com muitos itens.
+      </div>
+      <label style="font-size:12px;font-weight:600;display:block;margin-bottom:4px">Termo de Adjudicação (obrigatório)</label>
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+        <label class="btn sm" style="cursor:pointer;display:inline-block">
+          &#128206; Anexar arquivo (.pdf, .md, .txt)
+          <input type="file" accept=".pdf,.md,.txt" style="display:none" onchange="onAnexarArquivoAdjudicacao(this)">
+        </label>
+        <span id="ref-import-status-adj" style="font-size:11px;color:var(--text3)"></span>
+      </div>
+      <textarea id="ref-import-textarea" placeholder="...ou cole aqui o texto do Termo de Adjudicação" style="width:100%;min-height:140px;font-family:monospace;font-size:12px" oninput="pretextarImportacaoReferencia()"></textarea>
+      <label style="font-size:12px;font-weight:600;display:block;margin:12px 0 4px">Ranking (opcional — necessário para trazer o CNPJ das empresas)</label>
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+        <label class="btn sm" style="cursor:pointer;display:inline-block">
+          &#128206; Anexar arquivo (.pdf, .md, .txt)
+          <input type="file" accept=".pdf,.md,.txt" style="display:none" onchange="onAnexarArquivoRanking(this)">
+        </label>
+        <span id="ref-import-status-rank" style="font-size:11px;color:var(--text3)"></span>
+      </div>
+      <textarea id="ref-import-textarea-ranking" placeholder="...ou cole aqui o texto do Ranking (traz o CNPJ)" style="width:100%;min-height:110px;font-family:monospace;font-size:12px" oninput="pretextarImportacaoReferencia()"></textarea>
+      <div id="ref-import-preview" style="margin-top:14px"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn" onclick="fecharModalImportarReferencia()">Cancelar</button>
+      <button class="btn primary" onclick="confirmarImportacaoReferencia()">Importar processo</button>
+    </div>
+  </div>
+</div>
 
 <!-- MODAL VINCULAR ITENS POR EMPRESA -->
 <div id="modal-vincular-empresa" class="modal-overlay hidden">
