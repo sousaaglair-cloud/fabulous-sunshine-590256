@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self' https://mpgwgiajercrukuinnnt.supabase.co wss://mpgwgiajercrukuinnnt.supabase.co https://brasilapi.com.br; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'self';">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self' https://mpgwgiajercrukuinnnt.supabase.co wss://mpgwgiajercrukuinnnt.supabase.co https://brasilapi.com.br https://pncp.gov.br https://apipcp.portaldecompraspublicas.com.br; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'self';">
 <title>Gestão de Credenciamento — Divisão de Quantitativos</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
@@ -554,6 +554,7 @@
     <button class="tab" onclick="showTab(event,'contratos')">📄 Contratos</button>
     <button class="tab" onclick="showTab(event,'importar')">⬆ Importar</button>
     <button class="tab" onclick="showTab(event,'relatorio')">📊 Relatório</button>
+    <button class="tab" onclick="showTab(event,'bancoprecos')">💰 Banco de Preços</button>
   </div>
 
   <!-- ITENS -->
@@ -906,6 +907,123 @@
       </div>
     </div>
     <div id="rel-content"></div>
+  </div>
+
+  <!-- BANCO DE PREÇOS -->
+  <div id="tab-bancoprecos" class="section">
+    <div class="alert info" style="margin-bottom:16px">
+      &#8505; Base própria de preços praticados em contratações públicas de <strong>serviços de saúde</strong>,
+      alimentada a partir do <strong>PNCP</strong> e, futuramente, do <strong>Portal de Compras Públicas</strong>.
+      A busca é <strong>por descrição</strong> (igual uma fonte de preços) — digite o que procura, ex:
+      <em>cardiologia</em>, <em>ultrassonografia</em>, <em>consulta em ortopedia</em>. Não é vinculada ao
+      processo atual — é uma base nacional de referência.
+    </div>
+
+    <!-- ETL / ATUALIZAÇÃO DA BASE -->
+    <div class="card">
+      <div class="card-title">&#8635; Buscar preços no PNCP (por descrição)</div>
+      <div class="row">
+        <div class="field flex1">
+          <label>O que buscar (obrigatório — separe vários termos por vírgula)</label>
+          <input id="bp-etl-termos" placeholder="Ex: cardiologia, ultrassonografia, consulta em ortopedia" style="width:100%">
+        </div>
+      </div>
+      <div class="row">
+        <div class="field"><label>Data inicial</label><input type="date" class="w140" id="bp-etl-data-ini"></div>
+        <div class="field"><label>Data final</label><input type="date" class="w140" id="bp-etl-data-fim"></div>
+        <div class="field">
+          <label>UF (opcional — deixe nacional só se o período for curto)</label>
+          <select class="w120" id="bp-etl-uf"><option value="">Nacional</option></select>
+        </div>
+        <div class="field" style="justify-content:flex-end">
+          <button class="btn success" id="bp-etl-btn" onclick="rodarETLBancoPrecos()">&#8635; Buscar no PNCP</button>
+        </div>
+      </div>
+      <div style="font-size:11px;color:var(--text3);margin-top:4px">
+        A busca roda no seu navegador (o PNCP bloqueia chamadas feitas direto pelo servidor). Não feche esta aba
+        enquanto estiver buscando. Períodos longos + busca nacional podem levar a resultado parcial.
+        Pra cobrir tudo, prefira períodos curtos (até ~30 dias) ou informe uma UF.
+      </div>
+      <div id="bp-etl-status" style="font-size:12px;color:var(--text3);margin-top:6px"></div>
+      <div id="bp-etl-log" style="margin-top:12px"></div>
+    </div>
+
+    <!-- FILTROS DE PESQUISA -->
+    <div class="card">
+      <div class="card-title">&#128269; Filtrar o que já está na base</div>
+      <div class="row">
+        <div class="field"><label>UF</label><select class="w100" id="bp-f-uf"><option value="">Todas</option></select></div>
+        <div class="field"><label>Município</label><input class="w160" id="bp-f-municipio" placeholder="Ex: Sumé"></div>
+        <div class="field"><label>Data resultado — de</label><input type="date" class="w140" id="bp-f-data-ini"></div>
+        <div class="field"><label>Data resultado — até</label><input type="date" class="w140" id="bp-f-data-fim"></div>
+        <div class="field">
+          <label>Fonte</label>
+          <select class="w120" id="bp-f-fonte">
+            <option value="">Todas</option>
+            <option value="pncp">PNCP</option>
+            <option value="portal_compras_publicas">Portal de Compras Públicas</option>
+          </select>
+        </div>
+        <div class="field flex1"><label>Busca livre (objeto/item)</label><input id="bp-f-texto" placeholder="Ex: cardiologia" style="width:100%"></div>
+        <div class="field" style="justify-content:flex-end">
+          <button class="btn primary" onclick="buscarBancoPrecos()">&#128269; Filtrar</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ESTATÍSTICAS -->
+    <div class="metrics" id="bp-metrics" style="display:none">
+      <div class="metric">
+        <div class="metric-accent"></div>
+        <div class="metric-label">Registros encontrados</div>
+        <div class="metric-value sm" id="bp-m-total">0</div>
+      </div>
+      <div class="metric">
+        <div class="metric-accent blue"></div>
+        <div class="metric-label">Preço mínimo</div>
+        <div class="metric-value sm" id="bp-m-min">R$ 0,00</div>
+      </div>
+      <div class="metric">
+        <div class="metric-accent purple"></div>
+        <div class="metric-label">Preço médio</div>
+        <div class="metric-value sm" id="bp-m-media">R$ 0,00</div>
+      </div>
+      <div class="metric">
+        <div class="metric-accent purple"></div>
+        <div class="metric-label">Preço mediano</div>
+        <div class="metric-value sm" id="bp-m-mediana">R$ 0,00</div>
+      </div>
+      <div class="metric">
+        <div class="metric-accent orange"></div>
+        <div class="metric-label">Preço máximo</div>
+        <div class="metric-value sm" id="bp-m-max">R$ 0,00</div>
+      </div>
+    </div>
+
+    <!-- RESULTADOS -->
+    <div class="card">
+      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:14px">
+        <div class="card-title" style="margin-bottom:0">Resultados (<span id="bp-count">0</span>)</div>
+        <button class="btn success sm" onclick="exportarBancoPrecosExcel()">&#128202; Exportar Excel</button>
+      </div>
+      <div class="scroll-x">
+        <table>
+          <thead>
+            <tr>
+              <th>Termo(s) buscado(s)</th>
+              <th>Órgão / Município-UF</th>
+              <th>Objeto / Item</th>
+              <th>Vl. unitário</th>
+              <th>Vl. total</th>
+              <th>Data resultado</th>
+              <th>Fonte</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="bp-tbody"><tr><td colspan="8" style="text-align:center;color:var(--text3);padding:24px">Use os filtros acima e clique em "Filtrar".</td></tr></tbody>
+        </table>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -1973,6 +2091,7 @@ function showTab(e, t) {
   if (t === 'vinculacao') renderVinculacao();
   if (t === 'relatorio') renderRelatorio();
   if (t === 'contratos') renderContratos();
+  if (t === 'bancoprecos') renderBancoPrecos();
 }
 
 function showTabDirect(t) {
@@ -4772,6 +4891,405 @@ document.getElementById('rel-emp-select').addEventListener('change', renderRelat
     setTimeout(() => { document.getElementById('login-email').focus(); }, 100);
   }
 })();
+</script>
+
+<script>
+// =====================================================================
+// BANCO DE PREÇOS DE SERVIÇOS DE SAÚDE
+// Base nacional (PNCP / Portal de Compras Públicas), independente do
+// processo em edição. A busca ao PNCP roda AQUI NO NAVEGADOR (não na
+// Edge Function) porque o PNCP bloqueia/derruba silenciosamente
+// chamadas feitas servidor-a-servidor a partir da infraestrutura do
+// Supabase — confirmado: toda tentativa via Edge Function travava sem
+// resposta. Rodando do navegador, a conexão é uma conexão de rede
+// comum e funciona normalmente. O navegador só grava o resultado
+// direto no Supabase (banco_precos_saude / banco_precos_execucoes),
+// usando as policies de escrita para usuários autenticados.
+// =====================================================================
+
+const UFS_BR = ['AC','AL','AP','AM','BA','CE','DF','ES','GO','MA','MT','MS','MG','PA','PB','PR','PE','PI','RJ','RN','RS','RO','RR','SC','SP','SE','TO'];
+
+const PNCP_BASE = 'https://pncp.gov.br/api/consulta';
+const BP_MODALIDADES = [
+  { codigo: 12, nome: 'Credenciamento' },
+  { codigo: 6, nome: 'Pregão - Eletrônico' },
+  { codigo: 8, nome: 'Dispensa de Licitação' },
+  { codigo: 9, nome: 'Inexigibilidade' },
+];
+const BP_TAMANHO_PAGINA = 50;
+const BP_MAX_PAGINAS_POR_MODALIDADE = 15;
+const BP_LIMITE_TEMPO_MS = 90_000; // orçamento de tempo total da busca no navegador
+
+let _bpInicializado = false;
+let _bpResultadosAtuais = [];
+let _bpCancelar = false;
+
+function renderBancoPrecos() {
+  if (!_bpInicializado) {
+    const selects = [document.getElementById('bp-etl-uf'), document.getElementById('bp-f-uf')];
+    selects.forEach(sel => {
+      UFS_BR.forEach(uf => {
+        const opt = document.createElement('option');
+        opt.value = uf; opt.textContent = uf;
+        sel.appendChild(opt);
+      });
+    });
+
+    const hoje = new Date();
+    const trintaDias = new Date(hoje.getTime() - 30 * 24 * 60 * 60 * 1000);
+    document.getElementById('bp-etl-data-ini').value = trintaDias.toISOString().slice(0, 10);
+    document.getElementById('bp-etl-data-fim').value = hoje.toISOString().slice(0, 10);
+
+    _bpInicializado = true;
+    carregarExecucoesBancoPrecos();
+  }
+}
+
+function bpNormalizar(texto) {
+  return String(texto || '')
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '');
+}
+
+function bpClassificar(texto, termos) {
+  const norm = bpNormalizar(texto);
+  return termos.filter(t => norm.includes(bpNormalizar(t)));
+}
+
+async function bpFetchJson(url, timeoutMs = 15000) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const resp = await fetch(url, { headers: { accept: 'application/json' }, signal: controller.signal });
+    if (resp.status === 204) return { status: 204, json: null };
+    if (!resp.ok) return { status: resp.status, json: null };
+    return { status: resp.status, json: await resp.json() };
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+// ---- Busca no PNCP direto do navegador (por descrição) ----
+async function rodarETLBancoPrecos() {
+  const btn = document.getElementById('bp-etl-btn');
+  const statusEl = document.getElementById('bp-etl-status');
+  const termosRaw = document.getElementById('bp-etl-termos').value.trim();
+  const dataIniInput = document.getElementById('bp-etl-data-ini').value;
+  const dataFimInput = document.getElementById('bp-etl-data-fim').value;
+  const uf = document.getElementById('bp-etl-uf').value;
+
+  if (!termosRaw) { alert('Descreva o que você quer buscar (ex: cardiologia, ultrassonografia).'); return; }
+  if (!dataIniInput || !dataFimInput) { alert('Informe data inicial e final.'); return; }
+
+  const termos = termosRaw.split(',').map(t => t.trim()).filter(Boolean);
+  const dataInicial = dataIniInput.replaceAll('-', '');
+  const dataFinal = dataFimInput.replaceAll('-', '');
+
+  btn.disabled = true;
+  btn.textContent = '⏳ Buscando...';
+
+  const inicioExecucao = Date.now();
+  const tempoEsgotado = () => Date.now() - inicioExecucao > BP_LIMITE_TEMPO_MS;
+
+  // Registra o início da execução no log
+  const { data: execucao, error: erroInsert } = await supa
+    .from('banco_precos_execucoes')
+    .insert({
+      fonte: 'pncp',
+      data_inicio_janela: dataIniInput,
+      data_fim_janela: dataFimInput,
+    })
+    .select()
+    .single();
+
+  if (erroInsert) {
+    statusEl.innerHTML = `<span style="color:var(--danger-text)">&#10005; Erro ao registrar execução: ${esc(erroInsert.message)}</span>`;
+    btn.disabled = false;
+    btn.textContent = '⟳ Buscar no PNCP';
+    return;
+  }
+
+  let totalVerificadas = 0;
+  let totalMatches = 0;
+  let totalItensGravados = 0;
+  let parcial = false;
+  let erroFatal = null;
+
+  try {
+    for (const modalidade of BP_MODALIDADES) {
+      if (tempoEsgotado()) { parcial = true; break; }
+
+      let pagina = 1;
+      let totalPaginas = 1;
+
+      while (pagina <= totalPaginas && pagina <= BP_MAX_PAGINAS_POR_MODALIDADE) {
+        if (tempoEsgotado()) { parcial = true; break; }
+
+        statusEl.textContent = `Consultando PNCP — ${modalidade.nome}, página ${pagina}...`;
+
+        const params = new URLSearchParams({
+          dataInicial, dataFinal,
+          codigoModalidadeContratacao: String(modalidade.codigo),
+          pagina: String(pagina),
+          tamanhoPagina: String(BP_TAMANHO_PAGINA),
+        });
+        if (uf) params.set('uf', uf);
+
+        let resultado;
+        try {
+          resultado = await bpFetchJson(`${PNCP_BASE}/v1/contratacoes/publicacao?${params.toString()}`, 15000);
+        } catch (e) {
+          console.warn('Falha ao consultar PNCP:', e);
+          break;
+        }
+
+        if (resultado.status === 204 || !resultado.json) break;
+
+        const contratacoes = resultado.json.data || [];
+        if (contratacoes.length === 0) break;
+        totalPaginas = resultado.json.totalPaginas || 1;
+        totalVerificadas += contratacoes.length;
+
+        for (const c of contratacoes) {
+          if (tempoEsgotado()) { parcial = true; break; }
+
+          const termosBatidos = bpClassificar(c.objetoCompra || '', termos);
+          if (termosBatidos.length === 0) continue;
+          totalMatches += 1;
+
+          const cnpj = c.orgaoEntidade && c.orgaoEntidade.cnpj;
+          let itens = [];
+          if (cnpj && !tempoEsgotado()) {
+            try {
+              const r = await bpFetchJson(`${PNCP_BASE}/v1/orgaos/${cnpj}/compras/${c.anoCompra}/${c.sequencialCompra}/itens`, 12000);
+              itens = Array.isArray(r.json) ? r.json : (r.json && r.json.data) || [];
+            } catch (e) { itens = []; }
+          }
+
+          const base = {
+            fonte: 'pncp',
+            numero_controle_pncp: c.numeroControlePNCP,
+            categorias: termosBatidos,
+            termos_encontrados: termosBatidos,
+            orgao_nome: (c.orgaoEntidade && c.orgaoEntidade.razaoSocial) || null,
+            orgao_cnpj: cnpj || null,
+            municipio: (c.unidadeOrgao && c.unidadeOrgao.municipioNome) || null,
+            uf: (c.unidadeOrgao && c.unidadeOrgao.ufSigla) || null,
+            modalidade_codigo: String(modalidade.codigo),
+            modalidade_nome: modalidade.nome,
+            objeto_compra: c.objetoCompra,
+            situacao: c.situacaoCompraNome || null,
+            data_publicacao: c.dataPublicacaoPncp ? c.dataPublicacaoPncp.slice(0, 10) : null,
+            data_resultado: c.dataResultado ? c.dataResultado.slice(0, 10) : null,
+            link_origem: `https://pncp.gov.br/app/editais/${cnpj}/${c.anoCompra}/${c.sequencialCompra}`,
+            raw_json: c,
+          };
+
+          if (itens.length === 0) {
+            const { error } = await supa.from('banco_precos_saude').upsert({
+              ...base,
+              item_numero: null, item_descricao: null, unidade_medida: null,
+              quantidade: null, valor_unitario: null,
+              valor_total: c.valorTotalHomologado ?? c.valorTotalEstimado ?? null,
+              granularidade: 'global',
+            }, { onConflict: 'fonte,numero_controle_pncp,item_numero' });
+            if (!error) totalItensGravados += 1; else console.warn('Erro ao gravar:', error);
+          } else {
+            for (const item of itens) {
+              const termosItem = bpClassificar(`${c.objetoCompra || ''} ${item.descricao || ''}`, termos);
+              const termosFinais = termosItem.length > 0 ? termosItem : termosBatidos;
+              const { error } = await supa.from('banco_precos_saude').upsert({
+                ...base,
+                categorias: termosFinais,
+                termos_encontrados: termosFinais,
+                item_numero: item.numeroItem,
+                item_descricao: item.descricao,
+                unidade_medida: item.unidadeMedida || null,
+                quantidade: item.quantidade || null,
+                valor_unitario: item.valorUnitarioEstimado || null,
+                valor_total: item.valorTotal || null,
+                granularidade: 'item',
+                situacao: item.situacaoCompraItemNome || base.situacao,
+              }, { onConflict: 'fonte,numero_controle_pncp,item_numero' });
+              if (!error) totalItensGravados += 1; else console.warn('Erro ao gravar item:', error);
+            }
+          }
+        }
+
+        pagina += 1;
+      }
+    }
+  } catch (err) {
+    erroFatal = err.message || String(err);
+  }
+
+  await supa.from('banco_precos_execucoes').update({
+    status: erroFatal ? 'erro' : 'concluido',
+    total_contratacoes_verificadas: totalVerificadas,
+    total_matches: totalMatches,
+    total_itens_gravados: totalItensGravados,
+    erro: erroFatal || (parcial ? 'Busca interrompida por limite de tempo — resultado parcial. Restrinja o período ou informe uma UF pra cobrir tudo.' : null),
+    concluido_em: new Date().toISOString(),
+  }).eq('id', execucao.id);
+
+  if (erroFatal) {
+    statusEl.innerHTML = `<span style="color:var(--danger-text)">&#10005; Erro: ${esc(erroFatal)}</span>`;
+  } else {
+    const avisoParcial = parcial
+      ? ' <span style="color:var(--warn-text)">(parcial — restrinja o período ou informe UF pra cobrir tudo)</span>'
+      : '';
+    statusEl.innerHTML = `&#10003; Concluído — ${totalVerificadas} contratações verificadas, ` +
+      `${totalMatches} bateram com "${esc(termos.join(', '))}", ${totalItensGravados} registros gravados.${avisoParcial}`;
+    document.getElementById('bp-f-texto').value = termos[0] || '';
+    await buscarBancoPrecos();
+  }
+
+  await carregarExecucoesBancoPrecos();
+  btn.disabled = false;
+  btn.textContent = '⟳ Buscar no PNCP';
+}
+
+async function carregarExecucoesBancoPrecos() {
+  const logEl = document.getElementById('bp-etl-log');
+  const { data, error } = await supa
+    .from('banco_precos_execucoes')
+    .select('*')
+    .order('iniciado_em', { ascending: false })
+    .limit(5);
+
+  if (error || !data || data.length === 0) { logEl.innerHTML = ''; return; }
+
+  const badge = (status) => {
+    if (status === 'concluido') return '<span style="color:var(--success-text)">&#10003; concluído</span>';
+    if (status === 'erro') return '<span style="color:var(--danger-text)">&#10005; erro</span>';
+    return '<span style="color:var(--warn-text)">&#8635; em andamento</span>';
+  };
+
+  logEl.innerHTML = `
+    <div style="font-size:11px;color:var(--text2);text-transform:uppercase;letter-spacing:0.4px;font-weight:600;margin-bottom:8px">Últimas execuções</div>
+    <div style="display:flex;flex-direction:column;gap:6px">
+      ${data.map(e => `
+        <div style="display:flex;justify-content:space-between;gap:12px;font-size:12px;padding:6px 10px;background:var(--bg2);border-radius:var(--radius)">
+          <span>${esc(e.fonte)} — ${esc(e.data_inicio_janela || '')} a ${esc(e.data_fim_janela || '')}</span>
+          <span>${badge(e.status)} · ${e.total_matches ?? 0} encontrados</span>
+        </div>
+      `).join('')}
+    </div>`;
+}
+
+// ---- FILTRO / PESQUISA ----
+async function buscarBancoPrecos() {
+  const uf = document.getElementById('bp-f-uf').value;
+  const municipio = document.getElementById('bp-f-municipio').value.trim();
+  const dataIni = document.getElementById('bp-f-data-ini').value;
+  const dataFim = document.getElementById('bp-f-data-fim').value;
+  const fonte = document.getElementById('bp-f-fonte').value;
+  const texto = document.getElementById('bp-f-texto').value.trim();
+
+  const tbody = document.getElementById('bp-tbody');
+  tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;color:var(--text3);padding:24px">Buscando...</td></tr>';
+
+  let query = supa.from('banco_precos_saude').select('*').order('data_resultado', { ascending: false }).limit(500);
+
+  if (uf) query = query.eq('uf', uf);
+  if (municipio) query = query.ilike('municipio', `%${municipio}%`);
+  if (dataIni) query = query.gte('data_resultado', dataIni);
+  if (dataFim) query = query.lte('data_resultado', dataFim);
+  if (fonte) query = query.eq('fonte', fonte);
+  if (texto) query = query.or(`objeto_compra.ilike.%${texto}%,item_descricao.ilike.%${texto}%`);
+
+  const { data, error } = await query;
+
+  if (error) {
+    tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;color:var(--danger-text);padding:24px">Erro ao buscar: ${esc(error.message)}</td></tr>`;
+    document.getElementById('bp-metrics').style.display = 'none';
+    return;
+  }
+
+  _bpResultadosAtuais = data || [];
+  renderResultadosBancoPrecos(_bpResultadosAtuais);
+}
+
+function renderResultadosBancoPrecos(lista) {
+  const tbody = document.getElementById('bp-tbody');
+  document.getElementById('bp-count').textContent = lista.length;
+
+  if (lista.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;color:var(--text3);padding:24px">Nenhum resultado para os filtros informados.</td></tr>';
+    document.getElementById('bp-metrics').style.display = 'none';
+    return;
+  }
+
+  // Estatísticas: usa valor_unitario quando existe (granularidade='item'),
+  // senão cai pra valor_total (granularidade='global') — não mistura as duas
+  // coisas na mesma métrica de "unitário".
+  const valoresUnitarios = lista
+    .map(r => r.granularidade === 'item' ? Number(r.valor_unitario) : Number(r.valor_total))
+    .filter(v => !isNaN(v) && v > 0)
+    .sort((a, b) => a - b);
+
+  document.getElementById('bp-metrics').style.display = '';
+  document.getElementById('bp-m-total').textContent = lista.length;
+  if (valoresUnitarios.length > 0) {
+    const soma = valoresUnitarios.reduce((s, v) => s + v, 0);
+    const media = soma / valoresUnitarios.length;
+    const meio = Math.floor(valoresUnitarios.length / 2);
+    const mediana = valoresUnitarios.length % 2 !== 0
+      ? valoresUnitarios[meio]
+      : (valoresUnitarios[meio - 1] + valoresUnitarios[meio]) / 2;
+
+    document.getElementById('bp-m-min').textContent = fmt(valoresUnitarios[0]);
+    document.getElementById('bp-m-max').textContent = fmt(valoresUnitarios[valoresUnitarios.length - 1]);
+    document.getElementById('bp-m-media').textContent = fmt(media);
+    document.getElementById('bp-m-mediana').textContent = fmt(mediana);
+  } else {
+    ['bp-m-min', 'bp-m-max', 'bp-m-media', 'bp-m-mediana'].forEach(id => document.getElementById(id).textContent = fmt(0));
+  }
+
+  tbody.innerHTML = lista.map(r => {
+    const objetoOuItem = r.item_descricao || r.objeto_compra || '—';
+    const orgaoLocal = [r.orgao_nome, [r.municipio, r.uf].filter(Boolean).join('/')].filter(Boolean).join(' — ');
+    const link = r.link_origem ? `<a href="${esc(r.link_origem)}" target="_blank" rel="noopener" class="btn sm">Abrir</a>` : '';
+    return `<tr>
+      <td>${(r.categorias || []).map(esc).join(', ')}</td>
+      <td style="max-width:220px">${esc(orgaoLocal)}</td>
+      <td style="max-width:280px">${esc(objetoOuItem)}</td>
+      <td>${r.granularidade === 'item' && r.valor_unitario ? fmt(r.valor_unitario) : '—'}</td>
+      <td>${r.valor_total ? fmt(r.valor_total) : '—'}</td>
+      <td>${esc(r.data_resultado || '—')}</td>
+      <td>${r.fonte === 'pncp' ? 'PNCP' : 'Portal Compras Públicas'}</td>
+      <td>${link}</td>
+    </tr>`;
+  }).join('');
+}
+
+function exportarBancoPrecosExcel() {
+  if (!_bpResultadosAtuais || _bpResultadosAtuais.length === 0) {
+    alert('Nenhum resultado pra exportar. Faça uma busca primeiro.');
+    return;
+  }
+  const linhas = _bpResultadosAtuais.map(r => ({
+    'Termo(s) buscado(s)': (r.categorias || []).join(', '),
+    'Órgão': r.orgao_nome || '',
+    'Município': r.municipio || '',
+    'UF': r.uf || '',
+    'Objeto/Item': r.item_descricao || r.objeto_compra || '',
+    'Unidade': r.unidade_medida || '',
+    'Quantidade': r.quantidade || '',
+    'Valor unitário': r.granularidade === 'item' ? r.valor_unitario : '',
+    'Valor total': r.valor_total || '',
+    'Granularidade': r.granularidade,
+    'Situação': r.situacao || '',
+    'Data resultado': r.data_resultado || '',
+    'Fonte': r.fonte === 'pncp' ? 'PNCP' : 'Portal de Compras Públicas',
+    'Link': r.link_origem || '',
+  }));
+  const ws = XLSX.utils.json_to_sheet(linhas);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Banco de Preços');
+  XLSX.writeFile(wb, `banco_precos_saude_${new Date().toISOString().slice(0,10)}.xlsx`);
+}
 </script>
 
 <!-- MODAL IMPORTAR PROCESSO DE REFERÊNCIA (Portal de Compras Públicas) -->
