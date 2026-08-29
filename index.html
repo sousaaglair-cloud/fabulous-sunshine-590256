@@ -974,8 +974,31 @@
         </div>
 
         <div class="row" id="bp-mais-filtros" style="display:none">
-          <div class="field"><label>Período — de</label><input type="date" class="w140" id="bp-etl-data-ini"></div>
-          <div class="field"><label>Período — até</label><input type="date" class="w140" id="bp-etl-data-fim"></div>
+          <div class="field">
+            <label>Período</label>
+            <select class="w160" id="bp-periodo-preset" onchange="bpAplicarPeriodoPreset()">
+              <option value="personalizado">Personalizado</option>
+              <optgroup label="Último mês">
+                <option value="m1">Último 1 mês</option>
+                <option value="m2">Últimos 2 meses</option>
+                <option value="m3">Últimos 3 meses</option>
+                <option value="m4">Últimos 4 meses</option>
+                <option value="m5">Últimos 5 meses</option>
+                <option value="m6">Últimos 6 meses</option>
+                <option value="m7">Últimos 7 meses</option>
+                <option value="m8">Últimos 8 meses</option>
+                <option value="m9">Últimos 9 meses</option>
+                <option value="m10">Últimos 10 meses</option>
+              </optgroup>
+              <optgroup label="Último ano">
+                <option value="a1">Último 1 ano</option>
+                <option value="a2">Últimos 2 anos</option>
+                <option value="a3">Últimos 3 anos</option>
+              </optgroup>
+            </select>
+          </div>
+          <div class="field"><label>Período — de</label><input type="date" class="w140" id="bp-etl-data-ini" onchange="bpMarcarPeriodoPersonalizado()"></div>
+          <div class="field"><label>Período — até</label><input type="date" class="w140" id="bp-etl-data-fim" onchange="bpMarcarPeriodoPersonalizado()"></div>
           <div class="field"><label>UF</label><select class="w100" id="bp-f-uf"><option value="">Todas</option></select></div>
           <div class="field"><label>Município</label><input class="w160" id="bp-f-municipio" placeholder="Ex: Sumé"></div>
           <div class="field">
@@ -5045,6 +5068,33 @@ function bpShowSubtab(e, nome) {
   e.target.closest('.bp-subtab').classList.add('active');
 }
 
+// ---- FILTRO DE PERÍODO (presets "Último mês"/"Último ano" + personalizado) ----
+function bpCalcularPeriodoPreset(val) {
+  const hoje = new Date();
+  const fim = new Date(hoje);
+  const ini = new Date(hoje);
+  if (val[0] === 'm') {
+    ini.setMonth(ini.getMonth() - parseInt(val.slice(1), 10));
+  } else if (val[0] === 'a') {
+    ini.setFullYear(ini.getFullYear() - parseInt(val.slice(1), 10));
+  }
+  return { ini: ini.toISOString().slice(0, 10), fim: fim.toISOString().slice(0, 10) };
+}
+
+function bpAplicarPeriodoPreset() {
+  const val = document.getElementById('bp-periodo-preset').value;
+  if (val === 'personalizado') return;
+  const { ini, fim } = bpCalcularPeriodoPreset(val);
+  document.getElementById('bp-etl-data-ini').value = ini;
+  document.getElementById('bp-etl-data-fim').value = fim;
+}
+
+// Editar as datas manualmente sempre volta o seletor para "Personalizado",
+// pra não dar a falsa impressão de que ainda é o intervalo do preset.
+function bpMarcarPeriodoPersonalizado() {
+  document.getElementById('bp-periodo-preset').value = 'personalizado';
+}
+
 function bpToggleMaisFiltros() {
   const el = document.getElementById('bp-mais-filtros');
   const aberto = el.style.display !== 'none';
@@ -5103,6 +5153,7 @@ function bpLerFiltroAtual() {
     bases: [..._bpBasesSelecionadas],
     termos: document.getElementById('bp-etl-termos').value.trim(),
     buscaExata: document.getElementById('bp-busca-exata').checked,
+    periodoPreset: document.getElementById('bp-periodo-preset').value,
     dataIni: document.getElementById('bp-etl-data-ini').value,
     dataFim: document.getElementById('bp-etl-data-fim').value,
     uf: document.getElementById('bp-f-uf').value,
@@ -5133,8 +5184,16 @@ function bpCarregarFiltroSalvo() {
   }
   if (f.termos) document.getElementById('bp-etl-termos').value = f.termos;
   document.getElementById('bp-busca-exata').checked = !!f.buscaExata;
-  if (f.dataIni) document.getElementById('bp-etl-data-ini').value = f.dataIni;
-  if (f.dataFim) document.getElementById('bp-etl-data-fim').value = f.dataFim;
+  const preset = f.periodoPreset || 'personalizado';
+  document.getElementById('bp-periodo-preset').value = preset;
+  if (preset === 'personalizado') {
+    if (f.dataIni) document.getElementById('bp-etl-data-ini').value = f.dataIni;
+    if (f.dataFim) document.getElementById('bp-etl-data-fim').value = f.dataFim;
+  } else {
+    // Presets são relativos a "hoje" — recalcula em vez de usar as datas
+    // salvas, que podem estar desatualizadas.
+    bpAplicarPeriodoPreset();
+  }
   if (f.uf) document.getElementById('bp-f-uf').value = f.uf;
   if (f.municipio) document.getElementById('bp-f-municipio').value = f.municipio;
   if (f.modalidade) document.getElementById('bp-f-modalidade').value = f.modalidade;
@@ -5154,6 +5213,7 @@ function bpLimparFiltro() {
   document.getElementById('bp-f-fonte').value = '';
   document.getElementById('bp-ordenar-por').value = 'relevancia';
   document.getElementById('bp-ordenar-direcao').value = 'desc';
+  document.getElementById('bp-periodo-preset').value = 'personalizado';
   const hoje = new Date();
   const trintaDias = new Date(hoje.getTime() - 30 * 24 * 60 * 60 * 1000);
   document.getElementById('bp-etl-data-ini').value = trintaDias.toISOString().slice(0, 10);
