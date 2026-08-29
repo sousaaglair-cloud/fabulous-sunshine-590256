@@ -913,10 +913,11 @@
   <div id="tab-bancoprecos" class="section">
     <div class="alert info" style="margin-bottom:16px">
       &#8505; Base própria de preços praticados em contratações públicas de <strong>serviços de saúde</strong>,
-      alimentada a partir do <strong>PNCP</strong> e, futuramente, do <strong>Portal de Compras Públicas</strong>.
-      A busca é <strong>por descrição</strong> (igual uma fonte de preços) — digite o que procura, ex:
-      <em>cardiologia</em>, <em>ultrassonografia</em>, <em>consulta em ortopedia</em>. Não é vinculada ao
-      processo atual — é uma base nacional de referência.
+      alimentada por múltiplas fontes — <strong>PNCP</strong>, seus <strong>próprios processos homologados</strong>
+      no CredenciaGest, e futuramente <strong>Portal de Compras Públicas</strong> e outras. Toda fonte nova usa o
+      mesmo mecanismo de gravação — nenhuma duplicação é descartada entre órgãos diferentes, só entre o mesmo
+      item do mesmo processo/contratação. A busca é <strong>por descrição</strong> — digite o que procura, ex:
+      <em>cardiologia</em>, <em>ultrassonografia</em>.
     </div>
 
     <!-- ETL / ATUALIZAÇÃO DA BASE -->
@@ -948,6 +949,17 @@
       <div id="bp-etl-log" style="margin-top:12px"></div>
     </div>
 
+    <!-- SINCRONIZAR PROCESSOS PRÓPRIOS -->
+    <div class="card">
+      <div class="card-title">&#128203; Usar seus próprios processos homologados como fonte de preço</div>
+      <div style="font-size:12px;color:var(--text3);margin-bottom:10px">
+        Seus processos de credenciamento já concluídos também são contratações públicas de verdade — com órgão,
+        empresa (CNPJ) e valor homologado. Sincronize pra incluí-los na busca, junto com o PNCP.
+      </div>
+      <button class="btn primary" id="bp-sync-btn" onclick="sincronizarProcessosInternos()">&#128260; Sincronizar meus processos homologados</button>
+      <div id="bp-sync-status" style="font-size:12px;color:var(--text3);margin-top:6px"></div>
+    </div>
+
     <!-- FILTROS DE PESQUISA -->
     <div class="card">
       <div class="card-title">&#128269; Filtrar o que já está na base</div>
@@ -961,6 +973,7 @@
           <select class="w120" id="bp-f-fonte">
             <option value="">Todas</option>
             <option value="pncp">PNCP</option>
+            <option value="processo_interno">Processo interno</option>
             <option value="portal_compras_publicas">Portal de Compras Públicas</option>
           </select>
         </div>
@@ -4970,6 +4983,76 @@ async function bpFetchJson(url, timeoutMs = 15000) {
   }
 }
 
+// =====================================================================
+// MECANISMO ÚNICO DE GRAVAÇÃO — usado por TODAS as fontes de preço.
+// Uma fonte nova (Painel de Preços, BPS, Portal de Compras Públicas,
+// ou qualquer outra) não precisa de um pipeline próprio: só precisa
+// de um "coletor" que traduza os dados dela pro formato comum abaixo
+// e chame bpGravarRegistro. A classificação por termo, a deduplicação
+// (chave_dedupe) e a gravação são as mesmas pra qualquer fonte.
+//
+// Formato comum esperado em `dados`:
+//   { chaveOrigem, itemNumero, orgaoNome, orgaoCnpj, municipio, uf,
+//     modalidadeCodigo, modalidadeNome, objeto, itemDescricao,
+//     unidadeMedida, quantidade, valorUnitario, valorTotal,
+//     granularidade, situacao, dataPublicacao, dataResultado,
+//     linkOrigem, rawJson }
+// =====================================================================
+async function bpGravarRegistro(fonte, dados, dicionario) {
+  const textoClassificar = `${dados.objeto || ''} ${dados.itemDescricao || ''}`;
+  const { categorias, termos } = bpClassificarComDicionario(textoClassificar, dicionario);
+
+  const payload = {
+    fonte,
+    numero_controle_pncp: fonte === 'pncp' ? dados.chaveOrigem : null,
+    id_processo_portal: fonte !== 'pncp' ? dados.chaveOrigem : null,
+    categorias,
+    termos_encontrados: termos,
+    orgao_nome: dados.orgaoNome || null,
+    orgao_cnpj: dados.orgaoCnpj || null,
+    municipio: dados.municipio || null,
+    uf: dados.uf || null,
+    modalidade_codigo: dados.modalidadeCodigo || null,
+    modalidade_nome: dados.modalidadeNome || null,
+    objeto_compra: dados.objeto || null,
+    item_numero: dados.itemNumero,
+    item_descricao: dados.itemDescricao || null,
+    unidade_medida: dados.unidadeMedida || null,
+    quantidade: dados.quantidade || null,
+    valor_unitario: dados.valorUnitario || null,
+    valor_total: dados.valorTotal || null,
+    granularidade: dados.granularidade || 'item',
+    situacao: dados.situacao || null,
+    data_publicacao: dados.dataPublicacao || null,
+    data_resultado: dados.dataResultado || null,
+    link_origem: dados.linkOrigem || null,
+    raw_json: dados.rawJson || null,
+  };
+
+  const { error } = await supa.from('banco_precos_saude').upsert(payload, { onConflict: 'chave_dedupe' });
+  if (error) console.warn(`Erro ao gravar registro (${fonte}):`, error);
+  return !error;
+}
+
+async function bpCarregarDicionario() {
+  const { data, error } = await supa.from('banco_precos_dicionario').select('categoria, termo').eq('ativo', true);
+  if (error || !data || data.length === 0) return [];
+  return data;
+}
+
+function bpClassificarComDicionario(texto, dicionario) {
+  const norm = bpNormalizar(texto);
+  const categorias = new Set();
+  const termos = new Set();
+  for (const { categoria, termo } of dicionario) {
+    if (norm.includes(bpNormalizar(termo))) {
+      categorias.add(categoria);
+      termos.add(termo);
+    }
+  }
+  return { categorias: [...categorias], termos: [...termos] };
+}
+
 // ---- Busca no PNCP direto do navegador (por descrição) ----
 async function rodarETLBancoPrecos() {
   const btn = document.getElementById('bp-etl-btn');
@@ -5015,6 +5098,7 @@ async function rodarETLBancoPrecos() {
   let totalItensGravados = 0;
   let parcial = false;
   let erroFatal = null;
+  const dicionario = await bpCarregarDicionario();
 
   try {
     for (const modalidade of BP_MODALIDADES) {
@@ -5067,52 +5151,45 @@ async function rodarETLBancoPrecos() {
             } catch (e) { itens = []; }
           }
 
-          const base = {
-            fonte: 'pncp',
-            numero_controle_pncp: c.numeroControlePNCP,
-            categorias: termosBatidos,
-            termos_encontrados: termosBatidos,
-            orgao_nome: (c.orgaoEntidade && c.orgaoEntidade.razaoSocial) || null,
-            orgao_cnpj: cnpj || null,
+          // ---- Coletor PNCP: traduz o dado bruto pro formato comum ----
+          const comum = {
+            chaveOrigem: c.numeroControlePNCP,
+            orgaoNome: (c.orgaoEntidade && c.orgaoEntidade.razaoSocial) || null,
+            orgaoCnpj: cnpj || null,
             municipio: (c.unidadeOrgao && c.unidadeOrgao.municipioNome) || null,
             uf: (c.unidadeOrgao && c.unidadeOrgao.ufSigla) || null,
-            modalidade_codigo: String(modalidade.codigo),
-            modalidade_nome: modalidade.nome,
-            objeto_compra: c.objetoCompra,
+            modalidadeCodigo: String(modalidade.codigo),
+            modalidadeNome: modalidade.nome,
+            objeto: c.objetoCompra,
             situacao: c.situacaoCompraNome || null,
-            data_publicacao: c.dataPublicacaoPncp ? c.dataPublicacaoPncp.slice(0, 10) : null,
-            data_resultado: c.dataResultado ? c.dataResultado.slice(0, 10) : null,
-            link_origem: `https://pncp.gov.br/app/editais/${cnpj}/${c.anoCompra}/${c.sequencialCompra}`,
-            raw_json: c,
+            dataPublicacao: c.dataPublicacaoPncp ? c.dataPublicacaoPncp.slice(0, 10) : null,
+            dataResultado: c.dataResultado ? c.dataResultado.slice(0, 10) : null,
+            linkOrigem: `https://pncp.gov.br/app/editais/${cnpj}/${c.anoCompra}/${c.sequencialCompra}`,
+            rawJson: c,
           };
 
           if (itens.length === 0) {
-            const { error } = await supa.from('banco_precos_saude').upsert({
-              ...base,
-              item_numero: null, item_descricao: null, unidade_medida: null,
-              quantidade: null, valor_unitario: null,
-              valor_total: c.valorTotalHomologado ?? c.valorTotalEstimado ?? null,
+            const ok = await bpGravarRegistro('pncp', {
+              ...comum,
+              itemNumero: null,
               granularidade: 'global',
-            }, { onConflict: 'fonte,numero_controle_pncp,item_numero' });
-            if (!error) totalItensGravados += 1; else console.warn('Erro ao gravar:', error);
+              valorTotal: c.valorTotalHomologado ?? c.valorTotalEstimado ?? null,
+            }, dicionario);
+            if (ok) totalItensGravados += 1;
           } else {
             for (const item of itens) {
-              const termosItem = bpClassificar(`${c.objetoCompra || ''} ${item.descricao || ''}`, termos);
-              const termosFinais = termosItem.length > 0 ? termosItem : termosBatidos;
-              const { error } = await supa.from('banco_precos_saude').upsert({
-                ...base,
-                categorias: termosFinais,
-                termos_encontrados: termosFinais,
-                item_numero: item.numeroItem,
-                item_descricao: item.descricao,
-                unidade_medida: item.unidadeMedida || null,
+              const ok = await bpGravarRegistro('pncp', {
+                ...comum,
+                itemNumero: item.numeroItem,
+                itemDescricao: item.descricao,
+                unidadeMedida: item.unidadeMedida || null,
                 quantidade: item.quantidade || null,
-                valor_unitario: item.valorUnitarioEstimado || null,
-                valor_total: item.valorTotal || null,
+                valorUnitario: item.valorUnitarioEstimado || null,
+                valorTotal: item.valorTotal || null,
                 granularidade: 'item',
-                situacao: item.situacaoCompraItemNome || base.situacao,
-              }, { onConflict: 'fonte,numero_controle_pncp,item_numero' });
-              if (!error) totalItensGravados += 1; else console.warn('Erro ao gravar item:', error);
+                situacao: item.situacaoCompraItemNome || comum.situacao,
+              }, dicionario);
+              if (ok) totalItensGravados += 1;
             }
           }
         }
@@ -5176,6 +5253,104 @@ async function carregarExecucoesBancoPrecos() {
         </div>
       `).join('')}
     </div>`;
+}
+
+// ---- Sincronizar processos internos (já homologados no CredenciaGest) ----
+function bpExtrairUf(municipioTexto) {
+  const m = String(municipioTexto || '').match(/([A-Z]{2})\s*$/);
+  return m ? m[1] : null;
+}
+
+function bpExtrairMunicipio(municipioTexto) {
+  if (!municipioTexto) return null;
+  return String(municipioTexto).split('-')[0].trim() || null;
+}
+
+async function sincronizarProcessosInternos() {
+  const btn = document.getElementById('bp-sync-btn');
+  const statusEl = document.getElementById('bp-sync-status');
+
+  btn.disabled = true;
+  btn.textContent = '⏳ Sincronizando...';
+  statusEl.textContent = 'Lendo seus processos homologados...';
+
+  try {
+    const { data: procs, error } = await supa
+      .from('processos')
+      .select('id, numero, orgao, objeto, municipio, data_homologacao, itens, empresas, status')
+      .eq('status', 'concluido');
+
+    if (error) throw error;
+
+    const dicionario = await bpCarregarDicionario();
+    let totalItens = 0;
+    let totalGravados = 0;
+    const processosSemUf = new Set();
+    const processosSemData = new Set();
+
+    for (const p of (procs || [])) {
+      const itens = Array.isArray(p.itens) ? p.itens : [];
+      const empresas = Array.isArray(p.empresas) ? p.empresas : [];
+      const uf = bpExtrairUf(p.municipio);
+      const municipio = bpExtrairMunicipio(p.municipio);
+
+      if (!uf) processosSemUf.add(p.numero || p.id);
+      if (!p.data_homologacao) processosSemData.add(p.numero || p.id);
+
+      for (let i = 0; i < itens.length; i++) {
+        const item = itens[i];
+        totalItens += 1;
+
+        const empresasDoItem = (item.empIds || [])
+          .map(id => empresas.find(e => e.id === id))
+          .filter(Boolean)
+          .map(e => `${e.nome} (${e.cnpj || 'sem CNPJ'})`);
+
+        const quantidade = Number(item.qtde) || null;
+        const valorUnitario = Number(item.vunit) || null;
+        const valorTotal = (quantidade && valorUnitario) ? quantidade * valorUnitario : null;
+
+        // ---- Coletor de processos internos: traduz pro formato comum ----
+        const ok = await bpGravarRegistro('processo_interno', {
+          chaveOrigem: p.id,
+          itemNumero: i + 1,
+          orgaoNome: p.orgao || null,
+          municipio,
+          uf,
+          modalidadeCodigo: '12',
+          modalidadeNome: 'Credenciamento',
+          objeto: p.objeto || null,
+          itemDescricao: item.desc || null,
+          unidadeMedida: item.und || null,
+          quantidade,
+          valorUnitario,
+          valorTotal,
+          granularidade: 'item',
+          situacao: 'homologado',
+          dataResultado: p.data_homologacao || null,
+          rawJson: { processo_numero: p.numero, empresas_credenciadas: empresasDoItem },
+        }, dicionario);
+
+        if (ok) totalGravados += 1;
+      }
+    }
+
+    let aviso = '';
+    if (processosSemUf.size > 0) {
+      aviso += `<br>&#9888; Sem UF (campo "município" vazio no processo): ${[...processosSemUf].map(esc).join(', ')} — não vão aparecer em buscas filtradas por UF.`;
+    }
+    if (processosSemData.size > 0) {
+      aviso += `<br>&#9888; Sem data de homologação: ${[...processosSemData].map(esc).join(', ')} — não vão aparecer em buscas filtradas por período.`;
+    }
+
+    statusEl.innerHTML = `&#10003; Sincronizado — ${procs.length} processo(s) homologado(s), ${totalItens} itens verificados, ${totalGravados} gravados na base.${aviso}`;
+    await buscarBancoPrecos();
+  } catch (err) {
+    statusEl.innerHTML = `<span style="color:var(--danger-text)">&#10005; Erro: ${esc(err.message || String(err))}</span>`;
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '🔄 Sincronizar meus processos homologados';
+  }
 }
 
 // ---- FILTRO / PESQUISA ----
@@ -5257,8 +5432,8 @@ function renderResultadosBancoPrecos(lista) {
       <td style="max-width:280px">${esc(objetoOuItem)}</td>
       <td>${r.granularidade === 'item' && r.valor_unitario ? fmt(r.valor_unitario) : '—'}</td>
       <td>${r.valor_total ? fmt(r.valor_total) : '—'}</td>
-      <td>${esc(r.data_resultado || '—')}</td>
-      <td>${r.fonte === 'pncp' ? 'PNCP' : 'Portal Compras Públicas'}</td>
+      <td>${r.data_resultado ? esc(r.data_resultado) : '<span style="color:var(--warn-text)">sem data</span>'}</td>
+      <td>${r.fonte === 'pncp' ? 'PNCP' : (r.fonte === 'processo_interno' ? 'Processo interno' : 'Portal Compras Públicas')}</td>
       <td>${link}</td>
     </tr>`;
   }).join('');
