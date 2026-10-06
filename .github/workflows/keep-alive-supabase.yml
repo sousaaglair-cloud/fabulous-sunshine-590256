@@ -1,0 +1,26 @@
+name: Manter Supabase ativo
+
+on:
+  schedule:
+    # Roda às 09:00 (horário de Brasília) nas segundas, quartas e sextas
+    - cron: '0 12 * * 1,3,5'
+  workflow_dispatch: {}
+
+jobs:
+  ping-supabase:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Consultar o Supabase (health check)
+        run: |
+          echo "Consultando o projeto Supabase para manter a atividade..."
+          HTTP_CODE=$(curl -s -o /tmp/resposta.json -w "%{http_code}" \
+            "https://mpgwgiajercrukuinnnt.supabase.co/auth/v1/health")
+          echo "Código HTTP recebido: $HTTP_CODE"
+          cat /tmp/resposta.json
+          echo ""
+          if [ "$HTTP_CODE" -ge 200 ] && [ "$HTTP_CODE" -lt 500 ]; then
+            echo "✅ Projeto respondeu normalmente (ainda que com erro de chave, o que é esperado)."
+          else
+            echo "⚠️ O Supabase não respondeu como esperado. Verifique o painel do projeto."
+            exit 1
+          fi
